@@ -9,7 +9,7 @@ const MANUAL_API_KEY = "AIzaSyBZFQ4ldD-5lKTNu4I2KresXZpH_oKwjco";
 // Helper to get safe API key
 const getApiKey = (): string => {
   // 1. 优先使用手动配置的 Key
-  if (MANUAL_API_KEY) {
+  if (MANUAL_API_KEY && MANUAL_API_KEY.trim().length > 0) {
     return MANUAL_API_KEY;
   }
 
@@ -36,6 +36,11 @@ const getApiKey = (): string => {
   }
   
   return ""; 
+};
+
+// Export a checker so UI knows we are ready
+export const hasValidApiKey = (): boolean => {
+  return !!getApiKey();
 };
 
 // Generate random topic suggestions

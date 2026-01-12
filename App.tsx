@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateLessonScript, generateTopicSuggestions } from './services/geminiService';
+import { generateLessonScript, generateTopicSuggestions, hasValidApiKey } from './services/geminiService';
 import { DialogueLine, IdiomNote, LessonData, PlaybackState } from './types';
 import Transcript from './components/Transcript';
 import Controls from './components/Controls';
@@ -48,17 +48,12 @@ function App() {
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Check API Key on mount
+  // Check API Key on mount using the service helper
   useEffect(() => {
-    try {
-      // Safe check for process.env
-      const hasKey = typeof process !== 'undefined' && process.env && process.env.API_KEY;
-      if (!hasKey) {
-        setApiKeyMissing(true);
-      }
-    } catch (e) {
-      // If accessing process throws, we definitely don't have the key
+    if (!hasValidApiKey()) {
       setApiKeyMissing(true);
+    } else {
+      setApiKeyMissing(false);
     }
   }, []);
 
@@ -233,8 +228,10 @@ function App() {
 
   const handleGenerate = async () => {
     if (!topic.trim()) return;
-    if (apiKeyMissing) {
-      setError("API Key 未配置。请在部署平台设置环境变量。");
+    // Double check key availability before generation
+    if (!hasValidApiKey()) {
+      setApiKeyMissing(true);
+      setError("API Key 未配置。请在代码中配置 MANUAL_API_KEY。");
       return;
     }
 
@@ -370,7 +367,7 @@ function App() {
       {apiKeyMissing && (
         <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-4 py-2 text-sm text-center font-medium border-b border-amber-200 dark:border-amber-800 flex items-center justify-center gap-2">
           <AlertTriangle size={16} />
-          <span>API Key 未配置。请在部署环境检查 API_KEY 设置。</span>
+          <span>API Key 未配置。请在 services/geminiService.ts 中配置 MANUAL_API_KEY。</span>
         </div>
       )}
 
