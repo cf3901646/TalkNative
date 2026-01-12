@@ -16,7 +16,16 @@
     <meta name="apple-mobile-web-app-title" content="LingoFlow">
     <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/4/47/React.svg">
 
+    <!-- SEO & Open Graph (Fixes Vercel Preview) -->
     <title>LingoFlow - 地道听力练习</title>
+    <meta name="description" content="AI驱动的地道英语听力练习工具，生成真实对话，包含双语字幕与习语解析。">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="LingoFlow - 地道听力练习">
+    <meta property="og:description" content="AI驱动的地道英语听力练习工具，生成真实对话，包含双语字幕与习语解析。">
+    <!-- Placeholder image for preview. Replace this URL with your own og-image.png hosted in public folder for best results -->
+    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/4/47/React.svg">
+    <meta name="twitter:card" content="summary">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -55,6 +64,13 @@
 </head>
   <body class="bg-gray-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200">
     <div id="root"></div>
-    
+    <noscript>
+      <div style="padding: 2rem; text-align: center;">
+        <h1>LingoFlow</h1>
+        <p>AI-Powered English Listening Practice.</p>
+        <p>请启用 JavaScript 以使用本应用。</p>
+      </div>
+    </noscript>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
