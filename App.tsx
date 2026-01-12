@@ -4,7 +4,7 @@ import { DialogueLine, IdiomNote, LessonData, PlaybackState } from './types';
 import Transcript from './components/Transcript';
 import Controls from './components/Controls';
 import Sidebar from './components/Sidebar';
-import { Sparkles, BookOpen, Menu, Info, Dices, Clock, Trash2, ArrowRight, Loader2, Star, Bookmark } from 'lucide-react';
+import { Sparkles, BookOpen, Menu, Info, Dices, Clock, Trash2, ArrowRight, Loader2, Star, Bookmark, AlertTriangle } from 'lucide-react';
 
 function App() {
   const [topic, setTopic] = useState<string>('');
@@ -13,14 +13,14 @@ function App() {
   // Persistence States
   const [savedLessons, setSavedLessons] = useState<LessonData[]>(() => {
     try {
-      const saved = localStorage.getItem('lingoflow_lessons');
+      const saved = localStorage.getItem('talknative_lessons');
       return saved ? JSON.parse(saved) : [];
     } catch (e) { return []; }
   });
 
   const [favorites, setFavorites] = useState<IdiomNote[]>(() => {
     try {
-      const saved = localStorage.getItem('lingoflow_favorites');
+      const saved = localStorage.getItem('talknative_favorites');
       return saved ? JSON.parse(saved) : [];
     } catch (e) { return []; }
   });
@@ -29,7 +29,7 @@ function App() {
   const [topicQueue, setTopicQueue] = useState<string[]>([]);
   const [seenTopics, setSeenTopics] = useState<string[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('lingoflow_seen_topics') || '[]');
+      return JSON.parse(localStorage.getItem('talknative_seen_topics') || '[]');
     } catch { return []; }
   });
   const [isRandomizing, setIsRandomizing] = useState(false);
@@ -43,9 +43,24 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false); 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Check API Key on mount
+  useEffect(() => {
+    try {
+      // Safe check for process.env
+      const hasKey = typeof process !== 'undefined' && process.env && process.env.API_KEY;
+      if (!hasKey) {
+        setApiKeyMissing(true);
+      }
+    } catch (e) {
+      // If accessing process throws, we definitely don't have the key
+      setApiKeyMissing(true);
+    }
+  }, []);
 
   // Load voices
   useEffect(() => {
@@ -61,11 +76,11 @@ function App() {
 
   // Persistence Effects
   useEffect(() => {
-    localStorage.setItem('lingoflow_lessons', JSON.stringify(savedLessons));
+    localStorage.setItem('talknative_lessons', JSON.stringify(savedLessons));
   }, [savedLessons]);
 
   useEffect(() => {
-    localStorage.setItem('lingoflow_favorites', JSON.stringify(favorites));
+    localStorage.setItem('talknative_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
   useEffect(() => {
@@ -74,16 +89,19 @@ function App() {
     }
   }, []);
 
-  // Initialize Topic Queue
+  // Initialize Topic Queue - Non-blocking
   useEffect(() => {
-     triggerFetch(seenTopics);
+     if (!apiKeyMissing) {
+       triggerFetch(seenTopics);
+     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [apiKeyMissing]);
 
   const triggerFetch = async (avoid: string[]) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     try {
+      // Run in background, don't block UI
       const newTopics = await generateTopicSuggestions(5, avoid);
       if (newTopics && newTopics.length > 0) {
          setTopicQueue(prev => {
@@ -91,9 +109,15 @@ function App() {
             const uniqueNew = newTopics.filter(t => !existing.has(t));
             return [...prev, ...uniqueNew];
          });
+         
+         // Auto-fill topic if empty to speed up user experience
+         setTopic(prev => {
+           if (!prev && newTopics[0]) return newTopics[0];
+           return prev;
+         });
       }
     } catch (e) {
-      console.error("Error fetching topics", e);
+      console.warn("Background topic fetch failed", e);
     } finally {
       fetchingRef.current = false;
     }
@@ -203,12 +227,17 @@ function App() {
         const newSeen = [...seenTopics, nextTopic];
         if (newSeen.length > 50) newSeen.shift();
         setSeenTopics(newSeen);
-        localStorage.setItem('lingoflow_seen_topics', JSON.stringify(newSeen));
+        localStorage.setItem('talknative_seen_topics', JSON.stringify(newSeen));
     }
   };
 
   const handleGenerate = async () => {
     if (!topic.trim()) return;
+    if (apiKeyMissing) {
+      setError("API Key 未配置。请在部署平台设置环境变量。");
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
     setLesson(null);
@@ -248,6 +277,8 @@ function App() {
     }
     setLesson(null);
     setTopic("");
+    // Refresh topics when going back home
+    triggerFetch(seenTopics);
   };
 
   const handleDeleteLesson = (e: React.MouseEvent, id: string) => {
@@ -317,8 +348,8 @@ function App() {
             <div className="bg-indigo-600 p-2 rounded-lg text-white">
               <Sparkles size={20} />
             </div>
-            <h1 className="text-xl font-bold tracking-tight hidden md:block">LingoFlow 听力流</h1>
-            <h1 className="text-xl font-bold tracking-tight md:hidden">LingoFlow</h1>
+            <h1 className="text-xl font-bold tracking-tight hidden md:block">TalkNative</h1>
+            <h1 className="text-xl font-bold tracking-tight md:hidden">TalkNative</h1>
           </div>
           
           <div className="flex items-center gap-2">
@@ -334,6 +365,14 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* API Key Missing Banner */}
+      {apiKeyMissing && (
+        <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-4 py-2 text-sm text-center font-medium border-b border-amber-200 dark:border-amber-800 flex items-center justify-center gap-2">
+          <AlertTriangle size={16} />
+          <span>API Key 未配置。请在部署环境检查 API_KEY 设置。</span>
+        </div>
+      )}
 
       <main className="flex-1 flex relative overflow-hidden">
         
@@ -370,13 +409,13 @@ function App() {
                     <div className="flex gap-2">
                         <button
                           onClick={handleRandomTopic}
-                          disabled={isRandomizing}
+                          disabled={isRandomizing || apiKeyMissing}
                           className={`
                             flex-1 md:flex-none flex justify-center items-center p-3 
                             text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 
                             transition-colors rounded-xl bg-slate-50 md:bg-transparent 
                             hover:bg-slate-100 dark:hover:bg-slate-800
-                            ${isRandomizing ? 'opacity-50 cursor-wait' : ''}
+                            ${(isRandomizing || apiKeyMissing) ? 'opacity-50 cursor-not-allowed' : ''}
                           `}
                           title="随机话题"
                         >
@@ -385,8 +424,8 @@ function App() {
 
                         <button 
                           onClick={handleGenerate}
-                          disabled={isRandomizing}
-                          className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-transform active:scale-95 whitespace-nowrap shadow-md disabled:opacity-50"
+                          disabled={isRandomizing || apiKeyMissing}
+                          className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-transform active:scale-95 whitespace-nowrap shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           生成
                         </button>

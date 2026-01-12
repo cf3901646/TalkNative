@@ -3,17 +3,24 @@ import { DialogueLine, LessonData } from "../types";
 
 // Helper to get safe API key
 const getApiKey = (): string => {
-  const key = process.env.API_KEY;
-  if (!key) {
-    console.error("API_KEY is missing from environment variables.");
-    throw new Error("API Key is missing");
+  try {
+    // Check if process is defined to avoid ReferenceError on mobile/some browsers
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {
+    console.warn("Error accessing process.env", e);
   }
-  return key;
+  // Return empty string instead of throwing immediately allows UI to handle it
+  return ""; 
 };
 
 // Generate random topic suggestions
 export const generateTopicSuggestions = async (count: number, avoidTopics: string[]): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+  const key = getApiKey();
+  if (!key) return []; // Fail silently for suggestions, don't crash app
+
+  const ai = new GoogleGenAI({ apiKey: key });
   
   // Use a smaller context of recently seen topics to avoid repetition
   const avoidContext = avoidTopics.slice(-30).join("; ");
@@ -32,32 +39,37 @@ export const generateTopicSuggestions = async (count: number, avoidTopics: strin
     Return ONLY a JSON array of strings. Example: ["向邻居投诉噪音问题", "在海关回答签证问题"]
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview", 
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING }
-      }
-    }
-  });
-
-  const text = response.text;
-  if (!text) return [];
-  
   try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview", 
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return [];
+    
     return JSON.parse(text) as string[];
   } catch (e) {
-    console.error("Failed to parse topics JSON", e);
+    console.error("Failed to fetch topics", e);
     return [];
   }
 };
 
 // Generate the script content
 export const generateLessonScript = async (topic: string): Promise<LessonData> => {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+  const key = getApiKey();
+  if (!key) {
+    throw new Error("API Key is missing. Please check your configuration.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: key });
 
   const prompt = `
     Create a highly natural, native-level English conversation script between two friends (Alex and Jordan) about: "${topic}".

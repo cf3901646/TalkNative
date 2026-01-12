@@ -1,6 +1,6 @@
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open('lingoflow-store').then((cache) => cache.addAll([
+    caches.open('talknative-store').then((cache) => cache.addAll([
       '/',
       '/index.html',
       '/index.tsx',

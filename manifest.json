@@ -1,6 +1,6 @@
 {
-  "name": "LingoFlow 听力流",
-  "short_name": "LingoFlow",
+  "name": "TalkNative",
+  "short_name": "TalkNative",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
