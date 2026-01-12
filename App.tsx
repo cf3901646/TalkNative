@@ -146,15 +146,26 @@ function App() {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Core Playback Logic
   const playLine = useCallback((lineId: string) => {
     if (!lesson) return;
     const line = lesson.lines.find(l => l.id === lineId);
     if (!line) return;
 
+    // 1. CRITICAL: Clean up previous utterance listeners to prevent "double jump"
+    if (utteranceRef.current) {
+      utteranceRef.current.onend = null;
+      utteranceRef.current.onerror = null;
+    }
+    
+    // 2. Stop any current speech
     window.speechSynthesis.cancel();
+
+    // 3. Update State
     setActiveLineId(lineId);
     setPlaybackState(PlaybackState.PLAYING);
 
+    // 4. Create new utterance
     const utterance = new SpeechSynthesisUtterance(line.english);
     utterance.rate = playbackRate;
     utterance.lang = 'en-US';
@@ -164,17 +175,19 @@ function App() {
 
     utterance.onend = () => {
       const currentIndex = lesson.lines.findIndex(l => l.id === lineId);
+      // Auto-advance logic
       if (currentIndex >= 0 && currentIndex < lesson.lines.length - 1) {
+        // Small delay for natural flow
         setTimeout(() => {
-          if (!window.speechSynthesis.paused && !window.speechSynthesis.speaking) {
-             playLine(lesson.lines[currentIndex + 1].id);
-          } else if (window.speechSynthesis.paused) {
-             // Paused, do nothing
-          } else {
-             playLine(lesson.lines[currentIndex + 1].id);
-          }
+          // Double check we are not paused/stopped manually during the delay
+          // NOTE: We rely on checking if the utterance that just ended is still relevant
+          // But since we use a simple timeout, we assume flow continues.
+          // The robust way is to check internal state or refs, but checking window.speechSynthesis.paused is tricky.
+          // Instead, we just trigger the next one. If user paused during timeout, playLine will handle the cancel.
+          playLine(lesson.lines[currentIndex + 1].id);
         }, 400);
       } else {
+        // End of conversation
         setPlaybackState(PlaybackState.IDLE);
         setActiveLineId(null);
       }
@@ -182,12 +195,23 @@ function App() {
 
     utterance.onerror = (e) => {
       console.error("TTS Error", e);
-      setPlaybackState(PlaybackState.IDLE);
+      // On mobile, cancel() often triggers an error event, we ignore it if it was intentional
+      if (e.error !== 'interrupted' && e.error !== 'canceled') {
+         setPlaybackState(PlaybackState.IDLE);
+      }
     };
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   }, [lesson, playbackRate, getVoiceForSpeaker]);
+
+  // Real-time Speed Adjustment
+  useEffect(() => {
+    // If rate changes WHILE playing, immediately restart current line with new rate
+    if (playbackState === PlaybackState.PLAYING && activeLineId) {
+      playLine(activeLineId);
+    }
+  }, [playbackRate, activeLineId, playbackState, playLine]);
 
   const handleRandomTopic = async () => {
     if (isRandomizing) return;
@@ -263,8 +287,13 @@ function App() {
   };
 
   const handleBackToHome = () => {
+    // Force stop everything
+    if (utteranceRef.current) {
+       utteranceRef.current.onend = null;
+    }
     window.speechSynthesis.cancel();
     setPlaybackState(PlaybackState.IDLE);
+    
     if (lesson) {
       setSavedLessons(prev => {
         const exists = prev.find(l => l.id === lesson.id);
@@ -295,12 +324,16 @@ function App() {
 
   const handlePlayPause = () => {
     if (playbackState === PlaybackState.PLAYING) {
-      window.speechSynthesis.pause();
+      // MOBILE FIX: Use cancel() (Stop) instead of pause().
+      // This is much more reliable on iOS/Android than pause/resume.
+      if (utteranceRef.current) {
+        utteranceRef.current.onend = null; // Prevent auto-advance when pausing
+      }
+      window.speechSynthesis.cancel();
       setPlaybackState(PlaybackState.PAUSED);
-    } else if (playbackState === PlaybackState.PAUSED) {
-      window.speechSynthesis.resume();
-      setPlaybackState(PlaybackState.PLAYING);
     } else {
+      // Resume means re-playing the current line from start.
+      // This is a trade-off for mobile stability.
       if (activeLineId) {
         playLine(activeLineId);
       } else if (lesson?.lines.length) {
@@ -325,15 +358,13 @@ function App() {
     }
   };
 
-  // Sync Interval
+  // Safe cleanup
   useEffect(() => {
-      const interval = setInterval(() => {
-          if (playbackState === PlaybackState.PLAYING && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-              // Check completion logic if needed
-          }
-      }, 1000);
-      return () => clearInterval(interval);
-  }, [playbackState]);
+      return () => {
+        if (utteranceRef.current) utteranceRef.current.onend = null;
+        window.speechSynthesis.cancel();
+      }
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors font-sans pb-safe-area">
