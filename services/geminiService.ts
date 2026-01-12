@@ -1,17 +1,40 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DialogueLine, LessonData } from "../types";
 
+// ==========================================
+// 🔴 用户配置的 API Key
+// ==========================================
+const MANUAL_API_KEY = "AIzaSyBZFQ4ldD-5lKTNu4I2KresXZpH_oKwjco";
+
 // Helper to get safe API key
 const getApiKey = (): string => {
+  // 1. 优先使用手动配置的 Key
+  if (MANUAL_API_KEY) {
+    return MANUAL_API_KEY;
+  }
+
   try {
-    // Check if process is defined to avoid ReferenceError on mobile/some browsers
+    // 2. Check Vite environment variables (standard for React/Vite apps)
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      if (import.meta.env.VITE_API_KEY) return import.meta.env.VITE_API_KEY;
+      // @ts-ignore
+      if (import.meta.env.API_KEY) return import.meta.env.API_KEY;
+    }
+  } catch (e) {
+    // Ignore errors checking import.meta
+  }
+
+  try {
+    // 3. Check process.env (Node.js / Standard environments)
     if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
       return process.env.API_KEY;
     }
   } catch (e) {
     console.warn("Error accessing process.env", e);
   }
-  // Return empty string instead of throwing immediately allows UI to handle it
+  
   return ""; 
 };
 
