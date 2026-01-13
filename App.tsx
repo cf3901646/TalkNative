@@ -47,6 +47,8 @@ function App() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  // Track the character index of the current word being spoken
+  const textPositionRef = useRef<number>(0);
 
   // Check API Key on mount using the service helper
   useEffect(() => {
@@ -139,6 +141,8 @@ function App() {
   }, [voices]);
 
   const speakPhrase = (text: string) => {
+    // Don't interrupt the lesson if it's just playing a word definition, 
+    // but usually users click this when stopped. We cancel just to be safe.
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
@@ -147,55 +151,75 @@ function App() {
   };
 
   // Core Playback Logic
-  const playLine = useCallback((lineId: string) => {
+  // startOffset allows resuming from the middle of a sentence
+  const playLine = useCallback((lineId: string, startOffset = 0) => {
     if (!lesson) return;
     const line = lesson.lines.find(l => l.id === lineId);
     if (!line) return;
 
-    // 1. CRITICAL: Clean up previous utterance listeners to prevent "double jump"
+    // 1. Cleanup
     if (utteranceRef.current) {
       utteranceRef.current.onend = null;
       utteranceRef.current.onerror = null;
+      utteranceRef.current.onboundary = null;
     }
-    
-    // 2. Stop any current speech
     window.speechSynthesis.cancel();
 
-    // 3. Update State
+    // 2. Reset position if starting fresh
+    if (startOffset === 0) {
+      textPositionRef.current = 0;
+    }
+
+    // 3. Prepare Text (Slice if resuming)
+    // If offset > 0, we speak only the remaining part.
+    // NOTE: We rely on the transcript to show the FULL text, but audio plays partial.
+    const textToSpeak = startOffset > 0 ? line.english.slice(startOffset) : line.english;
+    if (!textToSpeak.trim()) {
+       // Edge case: if finished or empty, just go next
+       handleNext();
+       return;
+    }
+
+    // 4. Update State
     setActiveLineId(lineId);
     setPlaybackState(PlaybackState.PLAYING);
 
-    // 4. Create new utterance
-    const utterance = new SpeechSynthesisUtterance(line.english);
+    // 5. Create Utterance
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = playbackRate;
     utterance.lang = 'en-US';
     
     const voice = getVoiceForSpeaker(line.speaker);
     if (voice) utterance.voice = voice;
 
+    // 6. Track Progress (Virtual Pause Support)
+    utterance.onboundary = (event) => {
+      // 'word' boundary is supported in most modern browsers (Chrome, Safari, Edge)
+      if (event.name === 'word') {
+        // The charIndex in the event is relative to the textToSpeak (the slice).
+        // We add startOffset to get the absolute index in the original sentence.
+        textPositionRef.current = startOffset + event.charIndex;
+      }
+    };
+
     utterance.onend = () => {
       const currentIndex = lesson.lines.findIndex(l => l.id === lineId);
-      // Auto-advance logic
+      textPositionRef.current = 0; // Reset for next line
+
       if (currentIndex >= 0 && currentIndex < lesson.lines.length - 1) {
-        // Small delay for natural flow
         setTimeout(() => {
-          // Double check we are not paused/stopped manually during the delay
-          // NOTE: We rely on checking if the utterance that just ended is still relevant
-          // But since we use a simple timeout, we assume flow continues.
-          // The robust way is to check internal state or refs, but checking window.speechSynthesis.paused is tricky.
-          // Instead, we just trigger the next one. If user paused during timeout, playLine will handle the cancel.
+          // Check if we are still in playing state (user didn't pause during gap)
           playLine(lesson.lines[currentIndex + 1].id);
         }, 400);
       } else {
-        // End of conversation
         setPlaybackState(PlaybackState.IDLE);
         setActiveLineId(null);
+        textPositionRef.current = 0;
       }
     };
 
     utterance.onerror = (e) => {
       console.error("TTS Error", e);
-      // On mobile, cancel() often triggers an error event, we ignore it if it was intentional
       if (e.error !== 'interrupted' && e.error !== 'canceled') {
          setPlaybackState(PlaybackState.IDLE);
       }
@@ -203,15 +227,20 @@ function App() {
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  }, [lesson, playbackRate, getVoiceForSpeaker]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson, playbackRate, getVoiceForSpeaker]); // Removed circular deps
 
   // Real-time Speed Adjustment
   useEffect(() => {
-    // If rate changes WHILE playing, immediately restart current line with new rate
+    // When speed changes, we restart the CURRENT line from the CURRENT position.
+    // This creates a seamless "speed up" effect without restarting the sentence.
     if (playbackState === PlaybackState.PLAYING && activeLineId) {
-      playLine(activeLineId);
+       // Use the ref to resume from exactly where we are
+       playLine(activeLineId, textPositionRef.current);
     }
-  }, [playbackRate, activeLineId, playbackState, playLine]);
+  }, [playbackRate]); // Only trigger on rate change. 
+  // Note: we don't include activeLineId here to avoid double-firing if playLine updates it.
+  // The check ensures we only act if already playing.
 
   const handleRandomTopic = async () => {
     if (isRandomizing) return;
@@ -252,7 +281,6 @@ function App() {
 
   const handleGenerate = async () => {
     if (!topic.trim()) return;
-    // Double check key availability before generation
     if (!hasValidApiKey()) {
       setApiKeyMissing(true);
       setError("API Key 未配置。请在代码中配置 MANUAL_API_KEY。");
@@ -265,6 +293,7 @@ function App() {
     setActiveLineId(null);
     setPlaybackState(PlaybackState.IDLE);
     window.speechSynthesis.cancel();
+    textPositionRef.current = 0;
 
     try {
       const data = await generateLessonScript(topic);
@@ -287,12 +316,12 @@ function App() {
   };
 
   const handleBackToHome = () => {
-    // Force stop everything
     if (utteranceRef.current) {
        utteranceRef.current.onend = null;
     }
     window.speechSynthesis.cancel();
     setPlaybackState(PlaybackState.IDLE);
+    textPositionRef.current = 0;
     
     if (lesson) {
       setSavedLessons(prev => {
@@ -303,7 +332,6 @@ function App() {
     }
     setLesson(null);
     setTopic("");
-    // Refresh topics when going back home
     triggerFetch(seenTopics);
   };
 
@@ -324,18 +352,19 @@ function App() {
 
   const handlePlayPause = () => {
     if (playbackState === PlaybackState.PLAYING) {
-      // MOBILE FIX: Use cancel() (Stop) instead of pause().
-      // This is much more reliable on iOS/Android than pause/resume.
+      // PAUSE (Virtual):
+      // We hard-stop the engine (cancel) to avoid mobile bugs.
+      // But we keep textPositionRef intact so we know where to resume.
       if (utteranceRef.current) {
-        utteranceRef.current.onend = null; // Prevent auto-advance when pausing
+        utteranceRef.current.onend = null; 
       }
       window.speechSynthesis.cancel();
       setPlaybackState(PlaybackState.PAUSED);
     } else {
-      // Resume means re-playing the current line from start.
-      // This is a trade-off for mobile stability.
+      // RESUME:
+      // We play from the stored textPositionRef
       if (activeLineId) {
-        playLine(activeLineId);
+        playLine(activeLineId, textPositionRef.current);
       } else if (lesson?.lines.length) {
         playLine(lesson.lines[0].id);
       }
@@ -346,6 +375,7 @@ function App() {
     if (!lesson || !activeLineId) return;
     const idx = lesson.lines.findIndex(l => l.id === activeLineId);
     if (idx < lesson.lines.length - 1) {
+      textPositionRef.current = 0; // Reset for new line
       playLine(lesson.lines[idx + 1].id);
     }
   };
@@ -354,6 +384,7 @@ function App() {
     if (!lesson || !activeLineId) return;
     const idx = lesson.lines.findIndex(l => l.id === activeLineId);
     if (idx > 0) {
+      textPositionRef.current = 0; // Reset for new line
       playLine(lesson.lines[idx - 1].id);
     }
   };
@@ -367,32 +398,9 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors font-sans pb-safe-area">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors font-sans pb-safe-area pt-[env(safe-area-inset-top)]">
       
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 pt-[env(safe-area-inset-top)]">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleBackToHome()}>
-            <div className="bg-indigo-600 p-2 rounded-lg text-white">
-              <Sparkles size={20} />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight hidden md:block">TalkNative</h1>
-            <h1 className="text-xl font-bold tracking-tight md:hidden">TalkNative</h1>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {lesson && (
-              <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors relative"
-              >
-                {sidebarOpen ? <BookOpen size={24} /> : <Menu size={24} />}
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full md:hidden" />
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Header REMOVED for mobile space optimization */}
 
       {/* API Key Missing Banner */}
       {apiKeyMissing && (
@@ -406,12 +414,20 @@ function App() {
         
         {/* Main Content Area */}
         <div className={`flex-1 transition-all duration-300 w-full ${sidebarOpen ? 'md:mr-80' : ''}`}>
-          <div className="max-w-3xl mx-auto px-4 py-8 pb-32">
+          <div className="max-w-3xl mx-auto px-4 py-6 pb-32">
             
             {/* Input & Home Section */}
             {!lesson && !isGenerating && (
-              <div className="flex flex-col items-center justify-start pt-6 min-h-[60vh] space-y-8 animate-fade-in-up">
+              <div className="flex flex-col items-center justify-start pt-10 min-h-[60vh] space-y-8 animate-fade-in-up">
                 
+                {/* Branding added here since header is gone */}
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="bg-indigo-600 p-3 rounded-xl text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+                       <Sparkles size={28} />
+                    </div>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">TalkNative</h1>
+                </div>
+
                 {/* Hero Section */}
                 <div className="text-center space-y-4 max-w-lg w-full px-4">
                   <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white">
@@ -607,7 +623,7 @@ function App() {
                   <div>
                     <h3 className="font-semibold text-indigo-900 dark:text-indigo-100 text-sm md:text-base">主题：{lesson.topic}</h3>
                     <p className="text-xs md:text-sm text-indigo-700 dark:text-indigo-300 mt-1">
-                      点击句子播放。右上角查看笔记。
+                      点击句子播放。可点击下方按钮打开笔记。
                     </p>
                   </div>
                 </div>
@@ -615,7 +631,7 @@ function App() {
                 <Transcript 
                   lines={lesson.lines} 
                   activeId={activeLineId} 
-                  onLineClick={playLine}
+                  onLineClick={(id) => playLine(id, 0)}
                   isPlaying={playbackState === PlaybackState.PLAYING}
                 />
               </div>
@@ -649,6 +665,8 @@ function App() {
           playbackRate={playbackRate}
           setPlaybackRate={setPlaybackRate}
           hasScript={!!lesson}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          isSidebarOpen={sidebarOpen}
         />
       )}
     </div>

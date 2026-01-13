@@ -23,7 +23,7 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
   }, [activeId]);
 
   return (
-    <div className="flex-1 space-y-6 pb-32" ref={scrollRef}>
+    <div className="flex-1 space-y-6 pb-48" ref={scrollRef}>
       {lines.map((line) => {
         const isActive = line.id === activeId;
         const isAlex = line.speaker === 'Alex';

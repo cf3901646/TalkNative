@@ -35,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ lines, activeLineId, isOpen, onClose,
 
   return (
     <div className={`
-      fixed inset-y-0 right-0 w-full md:w-80 bg-white dark:bg-slate-900 shadow-2xl transform transition-transform duration-300 z-40 border-l border-slate-200 dark:border-slate-800
+      fixed inset-y-0 right-0 w-full md:w-80 bg-white dark:bg-slate-900 transform transition-transform duration-300 z-40 border-l border-slate-200 dark:border-slate-800
       ${isOpen ? 'translate-x-0' : 'translate-x-full'}
     `}>
       <div className="h-full flex flex-col">
@@ -53,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ lines, activeLineId, isOpen, onClose,
         {/* Scrollable Content */}
         <div 
           ref={containerRef}
-          className="flex-1 overflow-y-auto p-6 space-y-4 pb-32"
+          className="flex-1 overflow-y-auto p-6 space-y-4 pb-48"
         >
           {allIdiomsWithMeta.length === 0 ? (
              <div className="flex flex-col items-center justify-center h-40 text-center">
