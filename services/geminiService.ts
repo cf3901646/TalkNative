@@ -5,13 +5,23 @@ import { DialogueLine, LessonData } from "../types";
 // 🔴 API Key Pool (Key Rotation)
 // ==========================================
 const API_KEYS = [
-  "AIzaSyBZFQ4ldD-5lKTNu4I2KresXZpH_oKwjco", // Original
   "AIzaSyCexM5PMxV34DQFPBdzcmPo0Jo1Gk_vECc",
   "AIzaSyDfWB2zpDVWZwph-Wi_t3G_y0vEntT56dE",
   "AIzaSyBVlLsTERlOHDaPVwV3GdbD_i3NF-0bqV0",
   "AIzaSyDP-0RGpEZKjUHav7CP4cUdUnRm5Ny1eEI",
   "AIzaSyAO74npgaYWKs7klR2UlSQ2eN016DFZtLo",
-  "AIzaSyBU5Z4n2od0-L1kMazTiXGxvVicNdIi7sg"
+  "AIzaSyBU5Z4n2od0-L1kMazTiXGxvVicNdIi7sg",
+  "AIzaSyBZFQ4ldD-5lKTNu4I2KresXZpH_oKwjco",
+  "AIzaSyAsYmJi4HmJcnVJDTFK1DF8DnfjRU3ydPw",
+  "AIzaSyCJdIafYx7yeYd6U96u7JPmyxD6phlysxA",
+  "AIzaSyCvtpuvH36VKkgjQGuIQRwPV64pOmcUKlQ",
+  "AIzaSyB1I_Q2NDqFqxWjei0QdNunfIInUvvH_vo",
+  "AIzaSyBl-W5rtbeajPlUF3wnJJNWKZ27GDTFxJg",
+  "AIzaSyBv5s3UIr0QS4HkVUIVgDMUvt3zPbZWFvU",
+  "AIzaSyDLYinf4AnRL1JfFJno1vKLsGqPcBovoR4",
+  "AIzaSyD_HocW72xDLX-6nEXIKyc7weXpv8unqwc",
+  "AIzaSyBd9LEdj4UOO6mE0nRIKA7bf9GoueH9sKc",
+  "AIzaSyCTuvuXhkqV9Ct8CYQRuHDzO4K9UG1Sazk"
 ];
 
 let currentKeyIndex = 0;
