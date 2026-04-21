@@ -4,8 +4,31 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-# 直接使用 Google Gemini REST API，不依赖任何 SDK
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# 收集所有可用的 API Key
+# 支持三种配置方式：
+#   1. GEMINI_API_KEY="key1,key2,key3" （逗号分隔）
+#   2. GEMINI_API_KEY_1="key1"  GEMINI_API_KEY_2="key2" ...（编号后缀）
+#   3. GEMINI_API_KEY="single_key" （单个 key，向后兼容）
+def _load_api_keys() -> list[str]:
+    keys: list[str] = []
+    
+    # 方式 1 & 3：从 GEMINI_API_KEY 读取（可能逗号分隔）
+    main_key = os.environ.get("GEMINI_API_KEY", "")
+    if main_key:
+        keys.extend([k.strip() for k in main_key.split(",") if k.strip()])
+    
+    # 方式 2：从 GEMINI_API_KEY_1, GEMINI_API_KEY_2 ... 读取
+    for i in range(1, 21):  # 最多支持 20 个
+        k = os.environ.get(f"GEMINI_API_KEY_{i}", "")
+        if k and k.strip() not in keys:
+            keys.append(k.strip())
+    
+    return keys
+
+API_KEYS = _load_api_keys()
+# 用于轮换的索引（每次 429 后切换到下一个 key）
+_current_key_index = 0
+
 MODEL_NAME = "gemini-2.5-flash"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent"
 
@@ -40,7 +63,13 @@ Output STRICT JSON matching the required schema (topic string, lines array conta
 
 
 async def call_gemini(system_prompt: str, user_message: str, temperature: float = 0.7):
-    """直接调用 Google Gemini REST API，零 SDK 依赖"""
+    """调用 Gemini API，遇到 429 自动切换到下一个 API Key"""
+    import asyncio
+    global _current_key_index
+
+    if not API_KEYS:
+        raise Exception("未配置任何 GEMINI_API_KEY，请在 Vercel 环境变量中添加。")
+
     payload = {
         "system_instruction": {
             "parts": [{"text": system_prompt}]
@@ -54,19 +83,40 @@ async def call_gemini(system_prompt: str, user_message: str, temperature: float 
         }
     }
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        resp = await client.post(
-            GEMINI_API_URL,
-            params={"key": GEMINI_API_KEY},
-            json=payload
-        )
+    last_error = None
+    tried_keys = 0
+    total_keys = len(API_KEYS)
 
-        if resp.status_code != 200:
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        while tried_keys < total_keys:
+            current_key = API_KEYS[_current_key_index % total_keys]
+            key_label = f"Key#{_current_key_index % total_keys + 1}"
+
+            resp = await client.post(
+                GEMINI_API_URL,
+                params={"key": current_key},
+                json=payload
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+
+            if resp.status_code == 429:
+                # 额度不够，切换到下一个 key
+                print(f"[LingoFlow] {key_label} 触发 429 限流，正在切换到下一个 Key...")
+                _current_key_index = (_current_key_index + 1) % total_keys
+                tried_keys += 1
+                last_error = f"Gemini API 429 (Key {key_label}): 额度已用完"
+                # 短暂等待后重试
+                await asyncio.sleep(1)
+                continue
+
+            # 其他错误直接抛出
             raise Exception(f"Gemini API error ({resp.status_code}): {resp.text}")
 
-        data = resp.json()
-        # 从 Gemini REST API 响应中提取文本
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+    # 所有 key 都用完了
+    raise Exception(f"所有 {total_keys} 个 API Key 均已触发限流 (429)，请等待额度恢复或添加更多 Key。最后错误: {last_error}")
 
 
 @app.post("/api/topics")
