@@ -63,7 +63,7 @@ Output STRICT JSON matching the required schema (topic string, lines array conta
 
 
 async def call_gemini(system_prompt: str, user_message: str, temperature: float = 0.7):
-    """调用 Gemini API，遇到 429 自动切换到下一个 API Key"""
+    """调用 Gemini API，遇到 429 自动切换 Key，遇到 503 自动重试"""
     import asyncio
     global _current_key_index
 
@@ -86,37 +86,54 @@ async def call_gemini(system_prompt: str, user_message: str, temperature: float 
     last_error = None
     tried_keys = 0
     total_keys = len(API_KEYS)
+    max_503_retries = 3  # 每个 key 遇到 503 最多重试 3 次
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         while tried_keys < total_keys:
             current_key = API_KEYS[_current_key_index % total_keys]
             key_label = f"Key#{_current_key_index % total_keys + 1}"
 
-            resp = await client.post(
-                GEMINI_API_URL,
-                params={"key": current_key},
-                json=payload
-            )
+            # 503 重试循环
+            for attempt in range(max_503_retries + 1):
+                resp = await client.post(
+                    GEMINI_API_URL,
+                    params={"key": current_key},
+                    json=payload
+                )
 
-            if resp.status_code == 200:
-                data = resp.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
 
-            if resp.status_code == 429:
-                # 额度不够，切换到下一个 key
-                print(f"[LingoFlow] {key_label} 触发 429 限流，正在切换到下一个 Key...")
+                if resp.status_code == 503:
+                    if attempt < max_503_retries:
+                        wait_time = (attempt + 1) * 3  # 3秒、6秒、9秒递增等待
+                        print(f"[LingoFlow] {key_label} 触发 503 服务繁忙，{wait_time}秒后第{attempt+1}次重试...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        # 503 重试用完，切换到下一个 key
+                        print(f"[LingoFlow] {key_label} 503 重试{max_503_retries}次仍失败，切换 Key...")
+                        break
+
+                if resp.status_code == 429:
+                    break  # 跳出 503 重试循环，进入 key 切换逻辑
+
+                # 其他错误直接抛出
+                raise Exception(f"Gemini API error ({resp.status_code}): {resp.text}")
+
+            # 429 或 503 耗尽重试 → 切换到下一个 key
+            if resp.status_code in (429, 503):
+                reason = "限流" if resp.status_code == 429 else "服务繁忙"
+                print(f"[LingoFlow] {key_label} {reason}，切换到下一个 Key...")
                 _current_key_index = (_current_key_index + 1) % total_keys
                 tried_keys += 1
-                last_error = f"Gemini API 429 (Key {key_label}): 额度已用完"
-                # 短暂等待后重试
+                last_error = f"Gemini API {resp.status_code} ({key_label}): {reason}"
                 await asyncio.sleep(1)
                 continue
 
-            # 其他错误直接抛出
-            raise Exception(f"Gemini API error ({resp.status_code}): {resp.text}")
-
     # 所有 key 都用完了
-    raise Exception(f"所有 {total_keys} 个 API Key 均已触发限流 (429)，请等待额度恢复或添加更多 Key。最后错误: {last_error}")
+    raise Exception(f"所有 {total_keys} 个 API Key 均不可用，请稍后重试。最后错误: {last_error}")
 
 
 @app.post("/api/topics")
