@@ -3,10 +3,10 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import google.generativeai as genai
+from google import genai
 
-# 配置 Gemini API
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+# 使用新版 Google Gen AI SDK 初始化客户端
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
 
 app = FastAPI(title="LingoFlow Gateway")
 
@@ -16,6 +16,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+MODEL_NAME = "gemini-2.5-flash"
 
 TOPICS_SYSTEM_PROMPT = """Generate creative, specific, and diverse conversation scenarios for English listening practice.
 CRITICAL REQUIREMENTS:
@@ -43,16 +45,16 @@ async def generate_topics(request: Request):
         body = await request.json()
         message = body.get("message", "")
 
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=TOPICS_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.8,
-                response_mime_type="application/json",
-            ),
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=message,
+            config={
+                "system_instruction": TOPICS_SYSTEM_PROMPT,
+                "temperature": 0.8,
+                "response_mime_type": "application/json",
+            },
         )
 
-        response = model.generate_content(message)
         return JSONResponse(content={"reply": response.text})
 
     except Exception as e:
@@ -68,16 +70,16 @@ async def generate_script(request: Request):
         body = await request.json()
         message = body.get("message", "")
 
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=SCRIPT_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                response_mime_type="application/json",
-            ),
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=message,
+            config={
+                "system_instruction": SCRIPT_SYSTEM_PROMPT,
+                "temperature": 0.7,
+                "response_mime_type": "application/json",
+            },
         )
 
-        response = model.generate_content(message)
         return JSONResponse(content={"reply": response.text})
 
     except Exception as e:
