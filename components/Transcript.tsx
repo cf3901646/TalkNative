@@ -9,9 +9,13 @@ interface TranscriptProps {
   isPlaying: boolean;
 }
 
-// 将 **习语** 转换为 <b>习语</b>，兼容旧数据（含 **）和新数据（已含 <b>）
-const formatEnglish = (text: string): string => {
-  return text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+// 清除所有格式标记：**、<b>、</b> 等，确保纯文本显示
+const cleanText = (text: string): string => {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')       // 去除 **...**
+    .replace(/<\/?b>/gi, '')               // 去除 <b> 和 </b>
+    .replace(/<\/?i>/gi, '')               // 去除 <i> 和 </i>
+    .replace(/<\/?strong>/gi, '');         // 去除 <strong> 和 </strong>
 };
 
 const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, isPlaying }) => {
@@ -68,14 +72,13 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
                 </div>
 
                 {/* English Text */}
-                <p
-                  className={`text-lg md:text-xl font-medium leading-relaxed ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}
-                  dangerouslySetInnerHTML={{ __html: formatEnglish(line.english) }}
-                />
+                <p className={`text-lg md:text-xl font-medium leading-relaxed ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                  {cleanText(line.english)}
+                </p>
 
                 {/* Chinese Text */}
                 <p className={`text-base leading-relaxed ${isActive ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
-                  {line.chinese}
+                  {cleanText(line.chinese)}
                 </p>
 
                 {/* Idiom Tags */}
