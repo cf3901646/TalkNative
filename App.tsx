@@ -595,7 +595,7 @@ function App() {
                   <p className="text-lg font-medium text-slate-600 dark:text-slate-300 animate-pulse">
                     AI正在编写剧本...
                   </p>
-                  <p className="text-sm text-slate-400 mt-2">约需 10-15 秒，请稍候</p>
+                  <p className="text-sm text-slate-400 mt-2">约需 1分钟，请稍候</p>
                 </div>
               </div>
             )}
