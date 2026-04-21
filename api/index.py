@@ -33,7 +33,7 @@ def topics_skill():
 @server.register_skill(route="/api/script")
 def script_skill():
     return AISkill(
-        model="gemini/gemini-1.5-flash",
+        model="gemini/gemini-3-flash-preview",
         system_prompt="""Create a highly natural, native-level English conversation script between two friends (Alex and Jordan).
         The conversation should be comprehensive and last approximately 5-10 minutes in spoken duration (aim for 50-70 exchanges).
         
