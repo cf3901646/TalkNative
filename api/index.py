@@ -18,7 +18,7 @@ server = ShieldServer(
 @server.register_skill(route="/api/topics")
 def topics_skill():
     return AISkill(
-        model="gemini/gemini-1.5-flash", 
+        model="gemini/gemini-3-flash-preview", 
         system_prompt="""Generate creative, specific, and diverse conversation scenarios for English listening practice.
         CRITICAL REQUIREMENTS:
         1. Language: The topic descriptions MUST be in Simplified Chinese (Mandarin).
