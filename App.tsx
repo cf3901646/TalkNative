@@ -9,7 +9,7 @@ import { Sparkles, BookOpen, Menu, Info, Dices, Clock, Trash2, ArrowRight, Loade
 function App() {
   const [topic, setTopic] = useState<string>('');
   const [lesson, setLesson] = useState<LessonData | null>(null);
-  
+
   // Persistence States
   const [savedLessons, setSavedLessons] = useState<LessonData[]>(() => {
     try {
@@ -40,12 +40,12 @@ function App() {
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [playbackState, setPlaybackState] = useState<PlaybackState>(PlaybackState.IDLE);
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
-  const [sidebarOpen, setSidebarOpen] = useState(false); 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  
+
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   // Track the character index of the current word being spoken
   const textPositionRef = useRef<number>(0);
@@ -86,13 +86,7 @@ function App() {
     }
   }, []);
 
-  // Initialize Topic Queue - Non-blocking
-  useEffect(() => {
-     if (!apiKeyMissing) {
-       triggerFetch(seenTopics);
-     }
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKeyMissing]);
+
 
   const triggerFetch = async (avoid: string[]) => {
     if (fetchingRef.current) return;
@@ -101,17 +95,17 @@ function App() {
       // Run in background, don't block UI
       const newTopics = await generateTopicSuggestions(5, avoid);
       if (newTopics && newTopics.length > 0) {
-         setTopicQueue(prev => {
-            const existing = new Set([...prev, ...avoid]);
-            const uniqueNew = newTopics.filter(t => !existing.has(t));
-            return [...prev, ...uniqueNew];
-         });
-         
-         // Auto-fill topic if empty to speed up user experience
-         setTopic(prev => {
-           if (!prev && newTopics[0]) return newTopics[0];
-           return prev;
-         });
+        setTopicQueue(prev => {
+          const existing = new Set([...prev, ...avoid]);
+          const uniqueNew = newTopics.filter(t => !existing.has(t));
+          return [...prev, ...uniqueNew];
+        });
+
+        // Auto-fill topic if empty to speed up user experience
+        setTopic(prev => {
+          if (!prev && newTopics[0]) return newTopics[0];
+          return prev;
+        });
       }
     } catch (e) {
       console.warn("Background topic fetch failed", e);
@@ -134,9 +128,9 @@ function App() {
   const getVoiceForSpeaker = useCallback((speaker: string): SpeechSynthesisVoice | null => {
     if (voices.length === 0) return null;
     if (speaker === 'Alex') {
-       return voices.find(v => v.name.includes("Google US English") || v.name.includes("Male")) || voices[0];
+      return voices.find(v => v.name.includes("Google US English") || v.name.includes("Male")) || voices[0];
     } else {
-       return voices.find(v => (v.name.includes("Google UK English Female") || v.name.includes("Female") || v.name !== voices[0].name)) || voices[Math.min(1, voices.length - 1)];
+      return voices.find(v => (v.name.includes("Google UK English Female") || v.name.includes("Female") || v.name !== voices[0].name)) || voices[Math.min(1, voices.length - 1)];
     }
   }, [voices]);
 
@@ -175,9 +169,9 @@ function App() {
     // NOTE: We rely on the transcript to show the FULL text, but audio plays partial.
     const textToSpeak = startOffset > 0 ? line.english.slice(startOffset) : line.english;
     if (!textToSpeak.trim()) {
-       // Edge case: if finished or empty, just go next
-       handleNext();
-       return;
+      // Edge case: if finished or empty, just go next
+      handleNext();
+      return;
     }
 
     // 4. Update State
@@ -188,7 +182,7 @@ function App() {
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = playbackRate;
     utterance.lang = 'en-US';
-    
+
     const voice = getVoiceForSpeaker(line.speaker);
     if (voice) utterance.voice = voice;
 
@@ -221,7 +215,7 @@ function App() {
     utterance.onerror = (e) => {
       console.error("TTS Error", e);
       if (e.error !== 'interrupted' && e.error !== 'canceled') {
-         setPlaybackState(PlaybackState.IDLE);
+        setPlaybackState(PlaybackState.IDLE);
       }
     };
 
@@ -235,8 +229,8 @@ function App() {
     // When speed changes, we restart the CURRENT line from the CURRENT position.
     // This creates a seamless "speed up" effect without restarting the sentence.
     if (playbackState === PlaybackState.PLAYING && activeLineId) {
-       // Use the ref to resume from exactly where we are
-       playLine(activeLineId, textPositionRef.current);
+      // Use the ref to resume from exactly where we are
+      playLine(activeLineId, textPositionRef.current);
     }
   }, [playbackRate]); // Only trigger on rate change. 
   // Note: we don't include activeLineId here to avoid double-firing if playLine updates it.
@@ -258,10 +252,10 @@ function App() {
       try {
         const freshTopics = await generateTopicSuggestions(3, seenTopics);
         if (freshTopics.length > 0) {
-            nextTopic = freshTopics[0];
-            setTopicQueue(freshTopics.slice(1));
+          nextTopic = freshTopics[0];
+          setTopicQueue(freshTopics.slice(1));
         } else {
-            nextTopic = "讨论最近的生活变化"; 
+          nextTopic = "讨论最近的生活变化";
         }
       } catch (e) {
         nextTopic = "制定一个旅行计划";
@@ -271,11 +265,11 @@ function App() {
     }
 
     if (nextTopic) {
-        setTopic(nextTopic);
-        const newSeen = [...seenTopics, nextTopic];
-        if (newSeen.length > 50) newSeen.shift();
-        setSeenTopics(newSeen);
-        localStorage.setItem('talknative_seen_topics', JSON.stringify(newSeen));
+      setTopic(nextTopic);
+      const newSeen = [...seenTopics, nextTopic];
+      if (newSeen.length > 50) newSeen.shift();
+      setSeenTopics(newSeen);
+      localStorage.setItem('talknative_seen_topics', JSON.stringify(newSeen));
     }
   };
 
@@ -302,7 +296,7 @@ function App() {
         setActiveLineId(data.lines[0].id);
       }
       setSavedLessons(prev => {
-        const newList = [data, ...prev].slice(0, 20); 
+        const newList = [data, ...prev].slice(0, 20);
         return newList;
       });
       if (window.innerWidth < 768) {
@@ -317,12 +311,12 @@ function App() {
 
   const handleBackToHome = () => {
     if (utteranceRef.current) {
-       utteranceRef.current.onend = null;
+      utteranceRef.current.onend = null;
     }
     window.speechSynthesis.cancel();
     setPlaybackState(PlaybackState.IDLE);
     textPositionRef.current = 0;
-    
+
     if (lesson) {
       setSavedLessons(prev => {
         const exists = prev.find(l => l.id === lesson.id);
@@ -332,7 +326,7 @@ function App() {
     }
     setLesson(null);
     setTopic("");
-    triggerFetch(seenTopics);
+
   };
 
   const handleDeleteLesson = (e: React.MouseEvent, id: string) => {
@@ -356,7 +350,7 @@ function App() {
       // We hard-stop the engine (cancel) to avoid mobile bugs.
       // But we keep textPositionRef intact so we know where to resume.
       if (utteranceRef.current) {
-        utteranceRef.current.onend = null; 
+        utteranceRef.current.onend = null;
       }
       window.speechSynthesis.cancel();
       setPlaybackState(PlaybackState.PAUSED);
@@ -391,15 +385,15 @@ function App() {
 
   // Safe cleanup
   useEffect(() => {
-      return () => {
-        if (utteranceRef.current) utteranceRef.current.onend = null;
-        window.speechSynthesis.cancel();
-      }
+    return () => {
+      if (utteranceRef.current) utteranceRef.current.onend = null;
+      window.speechSynthesis.cancel();
+    }
   }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors font-sans pb-safe-area pt-[env(safe-area-inset-top)]">
-      
+
       {/* Header REMOVED for mobile space optimization */}
 
       {/* API Key Missing Banner */}
@@ -411,21 +405,21 @@ function App() {
       )}
 
       <main className="flex-1 flex relative overflow-hidden">
-        
+
         {/* Main Content Area */}
         <div className={`flex-1 transition-all duration-300 w-full ${sidebarOpen ? 'md:mr-80' : ''}`}>
           <div className="max-w-3xl mx-auto px-4 py-6 pb-32">
-            
+
             {/* Input & Home Section */}
             {!lesson && !isGenerating && (
               <div className="flex flex-col items-center justify-start pt-10 min-h-[60vh] space-y-8 animate-fade-in-up">
-                
+
                 {/* Branding added here since header is gone */}
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="bg-indigo-600 p-3 rounded-xl text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-                       <Sparkles size={28} />
-                    </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">TalkNative</h1>
+                  <div className="bg-indigo-600 p-3 rounded-xl text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+                    <Sparkles size={28} />
+                  </div>
+                  <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">TalkNative</h1>
                 </div>
 
                 {/* Hero Section */}
@@ -441,152 +435,152 @@ function App() {
                 {/* Input Area */}
                 <div className="w-full max-w-xl space-y-3 px-2">
                   <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-stretch md:items-center gap-2">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
                       placeholder="例如：面试技巧..."
                       className="flex-1 bg-transparent border-none px-4 py-3 focus:outline-none text-slate-900 dark:text-white placeholder-slate-400 text-base"
                       onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
                     />
-                    
+
                     <div className="flex gap-2">
-                        <button
-                          onClick={handleRandomTopic}
-                          disabled={isRandomizing || apiKeyMissing}
-                          className={`
+                      <button
+                        onClick={handleRandomTopic}
+                        disabled={isRandomizing || apiKeyMissing}
+                        className={`
                             flex-1 md:flex-none flex justify-center items-center p-3 
                             text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 
                             transition-colors rounded-xl bg-slate-50 md:bg-transparent 
                             hover:bg-slate-100 dark:hover:bg-slate-800
                             ${(isRandomizing || apiKeyMissing) ? 'opacity-50 cursor-not-allowed' : ''}
                           `}
-                          title="随机话题"
-                        >
-                          {isRandomizing ? <Loader2 size={24} className="animate-spin text-indigo-500" /> : <Dices size={24} />}
-                        </button>
+                        title="随机话题"
+                      >
+                        {isRandomizing ? <Loader2 size={24} className="animate-spin text-indigo-500" /> : <Dices size={24} />}
+                      </button>
 
-                        <button 
-                          onClick={handleGenerate}
-                          disabled={isRandomizing || apiKeyMissing}
-                          className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-transform active:scale-95 whitespace-nowrap shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          生成
-                        </button>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={isRandomizing || apiKeyMissing}
+                        className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-transform active:scale-95 whitespace-nowrap shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        生成
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Content Tabs */}
                 <div className="w-full max-w-2xl px-2 mt-8">
-                   <div className="flex gap-6 border-b border-slate-200 dark:border-slate-800 mb-6">
-                     <button 
-                       onClick={() => setActiveTab('history')}
-                       className={`pb-3 text-sm font-semibold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'history' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                     >
-                       <div className="flex items-center gap-2">
-                         <Clock size={16} /> 历史记录
-                       </div>
-                     </button>
-                     <button 
-                       onClick={() => setActiveTab('favorites')}
-                       className={`pb-3 text-sm font-semibold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'favorites' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                     >
-                       <div className="flex items-center gap-2">
-                         <Star size={16} /> 习语收藏 ({favorites.length})
-                       </div>
-                     </button>
-                   </div>
+                  <div className="flex gap-6 border-b border-slate-200 dark:border-slate-800 mb-6">
+                    <button
+                      onClick={() => setActiveTab('history')}
+                      className={`pb-3 text-sm font-semibold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'history' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Clock size={16} /> 历史记录
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('favorites')}
+                      className={`pb-3 text-sm font-semibold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'favorites' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Star size={16} /> 习语收藏 ({favorites.length})
+                      </div>
+                    </button>
+                  </div>
 
-                   {/* History List */}
-                   {activeTab === 'history' && (
-                     <>
-                       {savedLessons.length === 0 ? (
-                         <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 mx-2">
-                           <p>暂无学习记录</p>
-                         </div>
-                       ) : (
-                         <div className="grid gap-3">
-                           {savedLessons.map((saved) => (
-                             <div 
-                               key={saved.id}
-                               onClick={() => handleSelectSaved(saved)}
-                               className="group bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 active:border-indigo-500 md:hover:border-indigo-500 shadow-sm cursor-pointer transition-all flex justify-between items-center"
-                             >
-                               <div className="flex items-center gap-3 overflow-hidden">
-                                 <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-full text-indigo-600 dark:text-indigo-400 shrink-0">
-                                   <Sparkles size={16} />
-                                 </div>
-                                 <div className="truncate min-w-0">
-                                   <p className="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm md:text-base">{saved.topic}</p>
-                                   <p className="text-xs text-slate-500 mt-0.5">
-                                     {new Date(saved.createdAt).toLocaleDateString()} · {saved.lines.length} 句
-                                   </p>
-                                 </div>
-                               </div>
-                               
-                               <div className="flex items-center gap-2 pl-2">
-                                 <button
-                                   onClick={(e) => handleDeleteLesson(e, saved.id)}
-                                   className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors z-10"
-                                 >
-                                   <Trash2 size={18} />
-                                 </button>
-                                 <ArrowRight size={18} className="text-slate-300" />
-                               </div>
-                             </div>
-                           ))}
-                         </div>
-                       )}
-                     </>
-                   )}
-
-                   {/* Favorites List */}
-                   {activeTab === 'favorites' && (
-                     <>
-                        {favorites.length === 0 ? (
-                          <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 mx-2">
-                            <p>还没有收藏任何习语</p>
-                            <p className="text-xs mt-2">在学习时点击星号收藏</p>
-                          </div>
-                        ) : (
-                          <div className="grid gap-3">
-                            {favorites.map((fav, idx) => (
-                              <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-2">
-                                <div className="flex justify-between items-start">
-                                  <div 
-                                    className="font-bold text-slate-900 dark:text-slate-100 text-lg cursor-pointer hover:text-indigo-600"
-                                    onClick={() => speakPhrase(fav.phrase)}
-                                    title="点击播放"
-                                  >
-                                    {fav.phrase}
-                                  </div>
-                                  <button 
-                                    onClick={() => toggleFavorite(fav)}
-                                    className="text-amber-400 hover:text-amber-500 p-1"
-                                  >
-                                    <Star size={20} fill="currentColor" />
-                                  </button>
+                  {/* History List */}
+                  {activeTab === 'history' && (
+                    <>
+                      {savedLessons.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 mx-2">
+                          <p>暂无学习记录</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3">
+                          {savedLessons.map((saved) => (
+                            <div
+                              key={saved.id}
+                              onClick={() => handleSelectSaved(saved)}
+                              className="group bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 active:border-indigo-500 md:hover:border-indigo-500 shadow-sm cursor-pointer transition-all flex justify-between items-center"
+                            >
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-full text-indigo-600 dark:text-indigo-400 shrink-0">
+                                  <Sparkles size={16} />
                                 </div>
-                                
-                                <div>
-                                  <p className="text-slate-800 dark:text-slate-200 font-medium">
-                                    {fav.translation || "暂无中文释义"}
+                                <div className="truncate min-w-0">
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm md:text-base">{saved.topic}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5">
+                                    {new Date(saved.createdAt).toLocaleDateString()} · {saved.lines.length} 句
                                   </p>
-                                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-                                    {fav.definition}
-                                  </p>
-                                </div>
-                                
-                                <div className="text-xs text-slate-400 italic border-l-2 border-indigo-200 pl-2 mt-1">
-                                  {fav.usage}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                     </>
-                   )}
+
+                              <div className="flex items-center gap-2 pl-2">
+                                <button
+                                  onClick={(e) => handleDeleteLesson(e, saved.id)}
+                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors z-10"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                                <ArrowRight size={18} className="text-slate-300" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Favorites List */}
+                  {activeTab === 'favorites' && (
+                    <>
+                      {favorites.length === 0 ? (
+                        <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 mx-2">
+                          <p>还没有收藏任何习语</p>
+                          <p className="text-xs mt-2">在学习时点击星号收藏</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3">
+                          {favorites.map((fav, idx) => (
+                            <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+                              <div className="flex justify-between items-start">
+                                <div
+                                  className="font-bold text-slate-900 dark:text-slate-100 text-lg cursor-pointer hover:text-indigo-600"
+                                  onClick={() => speakPhrase(fav.phrase)}
+                                  title="点击播放"
+                                >
+                                  {fav.phrase}
+                                </div>
+                                <button
+                                  onClick={() => toggleFavorite(fav)}
+                                  className="text-amber-400 hover:text-amber-500 p-1"
+                                >
+                                  <Star size={20} fill="currentColor" />
+                                </button>
+                              </div>
+
+                              <div>
+                                <p className="text-slate-800 dark:text-slate-200 font-medium">
+                                  {fav.translation || "暂无中文释义"}
+                                </p>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+                                  {fav.definition}
+                                </p>
+                              </div>
+
+                              <div className="text-xs text-slate-400 italic border-l-2 border-indigo-200 pl-2 mt-1">
+                                {fav.usage}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
 
                 </div>
 
@@ -595,15 +589,15 @@ function App() {
 
             {/* Loading State */}
             {isGenerating && (
-               <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
-                 <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                 <div className="text-center">
-                   <p className="text-lg font-medium text-slate-600 dark:text-slate-300 animate-pulse">
-                     AI正在编写剧本...
-                   </p>
-                   <p className="text-sm text-slate-400 mt-2">约需 10-15 秒，请稍候</p>
-                 </div>
-               </div>
+              <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
+                <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                <div className="text-center">
+                  <p className="text-lg font-medium text-slate-600 dark:text-slate-300 animate-pulse">
+                    AI正在编写剧本...
+                  </p>
+                  <p className="text-sm text-slate-400 mt-2">约需 10-15 秒，请稍候</p>
+                </div>
+              </div>
             )}
 
             {/* Error Message */}
@@ -628,9 +622,9 @@ function App() {
                   </div>
                 </div>
 
-                <Transcript 
-                  lines={lesson.lines} 
-                  activeId={activeLineId} 
+                <Transcript
+                  lines={lesson.lines}
+                  activeId={activeLineId}
                   onLineClick={(id) => playLine(id, 0)}
                   isPlaying={playbackState === PlaybackState.PLAYING}
                 />
@@ -642,10 +636,10 @@ function App() {
 
         {/* Sidebar */}
         {lesson && (
-          <Sidebar 
-            lines={lesson.lines} 
-            activeLineId={activeLineId} 
-            isOpen={sidebarOpen} 
+          <Sidebar
+            lines={lesson.lines}
+            activeLineId={activeLineId}
+            isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
             favorites={favorites}
             onToggleFavorite={toggleFavorite}
@@ -656,7 +650,7 @@ function App() {
 
       {/* Footer Controls */}
       {lesson && (
-        <Controls 
+        <Controls
           playbackState={playbackState}
           onPlayPause={handlePlayPause}
           onNext={handleNext}
