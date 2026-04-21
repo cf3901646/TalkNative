@@ -46,4 +46,4 @@ async def route_llm_request(user_message: str, skill):
     except Exception as e:
         import logging
         logging.error(f"LiteLLM routing error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal LLM Gateway proxy error.")
+        raise HTTPException(status_code=500, detail=f"Internal LLM Gateway proxy error: {str(e)}")
