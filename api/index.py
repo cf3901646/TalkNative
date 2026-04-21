@@ -44,7 +44,7 @@ async def generate_topics(request: Request):
         message = body.get("message", "")
 
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash-preview-04-17",
+            model_name="gemini-2.5-flash",
             system_instruction=TOPICS_SYSTEM_PROMPT,
             generation_config=genai.GenerationConfig(
                 temperature=0.8,
@@ -69,7 +69,7 @@ async def generate_script(request: Request):
         message = body.get("message", "")
 
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash-preview-04-17",
+            model_name="gemini-2.5-flash",
             system_instruction=SCRIPT_SYSTEM_PROMPT,
             generation_config=genai.GenerationConfig(
                 temperature=0.7,
