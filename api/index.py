@@ -34,6 +34,7 @@ CRITICAL REQUIREMENTS:
 3. The conversation must have depth, nuance, and emotional engagement.
 4. Provide a Mandarin Chinese translation for each line.
 5. Idiom Analysis: For each idiom, provide a simple English definition AND a concise Chinese translation/explanation.
+6. In the "english" field, wrap idioms/slang with <b> tags (e.g. "I need to <b>bite the bullet</b> and do it"). Do NOT use ** or any other markdown formatting. ONLY use <b></b> HTML tags.
 
 Output STRICT JSON matching the required schema (topic string, lines array containing id, speaker, english, chinese, idioms array with phrase, definition, translation, usage)."""
 

@@ -9,6 +9,11 @@ interface TranscriptProps {
   isPlaying: boolean;
 }
 
+// 将 **习语** 转换为 <b>习语</b>，兼容旧数据（含 **）和新数据（已含 <b>）
+const formatEnglish = (text: string): string => {
+  return text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+};
+
 const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, isPlaying }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -27,16 +32,16 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
       {lines.map((line) => {
         const isActive = line.id === activeId;
         const isAlex = line.speaker === 'Alex';
-        
+
         return (
-          <div 
-            key={line.id} 
+          <div
+            key={line.id}
             id={`line-${line.id}`}
             onClick={() => onLineClick(line.id)}
             className={`
               group relative p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer
-              ${isActive 
-                ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20 dark:border-indigo-400 shadow-lg scale-[1.01]' 
+              ${isActive
+                ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20 dark:border-indigo-400 shadow-lg scale-[1.01]'
                 : 'bg-white border-transparent hover:border-slate-200 dark:bg-slate-800 dark:hover:border-slate-700 hover:shadow-md'
               }
             `}
@@ -45,8 +50,8 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
               {/* Avatar / Speaker Icon */}
               <div className={`
                 flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
-                ${isAlex 
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' 
+                ${isAlex
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
                   : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200'}
               `}>
                 {line.speaker[0]}
@@ -63,9 +68,10 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
                 </div>
 
                 {/* English Text */}
-                <p className={`text-lg md:text-xl font-medium leading-relaxed ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
-                  {line.english}
-                </p>
+                <p
+                  className={`text-lg md:text-xl font-medium leading-relaxed ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}
+                  dangerouslySetInnerHTML={{ __html: formatEnglish(line.english) }}
+                />
 
                 {/* Chinese Text */}
                 <p className={`text-base leading-relaxed ${isActive ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
@@ -74,13 +80,13 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
 
                 {/* Idiom Tags */}
                 {line.idioms.length > 0 && (
-                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                     {line.idioms.map((idiom, idx) => (
-                       <span key={idx} className="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 text-xs font-medium">
-                         💡 {idiom.phrase}
-                       </span>
-                     ))}
-                   </div>
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                    {line.idioms.map((idiom, idx) => (
+                      <span key={idx} className="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 text-xs font-medium">
+                        💡 {idiom.phrase}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -88,7 +94,7 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
             {/* Hover Play Button */}
             {!isActive && (
               <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                 <PlayCircle size={32} className="text-slate-300 hover:text-indigo-500" />
+                <PlayCircle size={32} className="text-slate-300 hover:text-indigo-500" />
               </div>
             )}
           </div>
