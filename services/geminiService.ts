@@ -1,5 +1,11 @@
 import { LessonData } from "../types";
 
+const cleanAndParseJSON = (text: string) => {
+  // Strip markdown backticks if the LLM wrapped the JSON
+  const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+  return JSON.parse(clean);
+};
+
 export const hasValidApiKey = (): boolean => {
   // Authentication is now safely pushed to backend.
   // Frontend is always ready to connect to gateway.
@@ -23,7 +29,7 @@ export const generateTopicSuggestions = async (count: number, avoidTopics: strin
 
     const data = await response.json();
     // PromptFortress returns JSON string under `reply` field when not streaming
-    return JSON.parse(data.reply);
+    return cleanAndParseJSON(data.reply);
   } catch (e) {
     console.warn("Failed to fetch topics from backend gateway", e);
     return [];
@@ -45,7 +51,7 @@ export const generateLessonScript = async (topic: string): Promise<LessonData> =
     if (!response.ok) throw new Error("Backend API Error");
 
     const data = await response.json();
-    const parsed = JSON.parse(data.reply);
+    const parsed = cleanAndParseJSON(data.reply);
 
     // Add UUIDs
     return {
