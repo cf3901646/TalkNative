@@ -1,12 +1,13 @@
 import os
-import json
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
 
-# 使用新版 Google Gen AI SDK 初始化客户端
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+# 直接使用 Google Gemini REST API，不依赖任何 SDK
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+MODEL_NAME = "gemini-2.5-flash"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent"
 
 app = FastAPI(title="LingoFlow Gateway")
 
@@ -16,8 +17,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-MODEL_NAME = "gemini-2.5-flash"
 
 TOPICS_SYSTEM_PROMPT = """Generate creative, specific, and diverse conversation scenarios for English listening practice.
 CRITICAL REQUIREMENTS:
@@ -39,24 +38,43 @@ CRITICAL REQUIREMENTS:
 Output STRICT JSON matching the required schema (topic string, lines array containing id, speaker, english, chinese, idioms array with phrase, definition, translation, usage)."""
 
 
+async def call_gemini(system_prompt: str, user_message: str, temperature: float = 0.7):
+    """直接调用 Google Gemini REST API，零 SDK 依赖"""
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": system_prompt}]
+        },
+        "contents": [
+            {"role": "user", "parts": [{"text": user_message}]}
+        ],
+        "generationConfig": {
+            "temperature": temperature,
+            "responseMimeType": "application/json"
+        }
+    }
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            GEMINI_API_URL,
+            params={"key": GEMINI_API_KEY},
+            json=payload
+        )
+
+        if resp.status_code != 200:
+            raise Exception(f"Gemini API error ({resp.status_code}): {resp.text}")
+
+        data = resp.json()
+        # 从 Gemini REST API 响应中提取文本
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+
+
 @app.post("/api/topics")
 async def generate_topics(request: Request):
     try:
         body = await request.json()
         message = body.get("message", "")
-
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=message,
-            config={
-                "system_instruction": TOPICS_SYSTEM_PROMPT,
-                "temperature": 0.8,
-                "response_mime_type": "application/json",
-            },
-        )
-
-        return JSONResponse(content={"reply": response.text})
-
+        reply = await call_gemini(TOPICS_SYSTEM_PROMPT, message, temperature=0.8)
+        return JSONResponse(content={"reply": reply})
     except Exception as e:
         return JSONResponse(
             status_code=500,
@@ -69,19 +87,8 @@ async def generate_script(request: Request):
     try:
         body = await request.json()
         message = body.get("message", "")
-
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=message,
-            config={
-                "system_instruction": SCRIPT_SYSTEM_PROMPT,
-                "temperature": 0.7,
-                "response_mime_type": "application/json",
-            },
-        )
-
-        return JSONResponse(content={"reply": response.text})
-
+        reply = await call_gemini(SCRIPT_SYSTEM_PROMPT, message, temperature=0.7)
+        return JSONResponse(content={"reply": reply})
     except Exception as e:
         return JSONResponse(
             status_code=500,
