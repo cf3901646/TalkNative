@@ -1,14 +1,15 @@
 import { LessonData } from "../types";
 
 const cleanAndParseJSON = (text: string) => {
-  // Strip markdown backticks if the LLM wrapped the JSON
-  const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  return JSON.parse(clean);
+  try {
+    const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    return JSON.parse(clean);
+  } catch (err: any) {
+    throw new Error(`JSON Parsing failed. Raw text snippet: ${text.substring(0, 50)}... Error: ${err.message}`);
+  }
 };
 
 export const hasValidApiKey = (): boolean => {
-  // Authentication is now safely pushed to backend.
-  // Frontend is always ready to connect to gateway.
   return true;
 };
 
@@ -17,22 +18,22 @@ export const generateTopicSuggestions = async (count: number, avoidTopics: strin
   const message = `Generate ${count} scenarios.\n${avoidContext ? `AVOID these recently used topics: ${avoidContext}` : ""}`;
 
   try {
-    const response = await fetch("http://localhost:8000/api/topics", {
+    const response = await fetch("/api/topics", {  // Use relative path for Vercel
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message })
     });
 
-    if (!response.ok) throw new Error("Backend API Error");
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Backend topic API failed (${response.status}): ${errorText}`);
+    }
 
     const data = await response.json();
-    // PromptFortress returns JSON string under `reply` field when not streaming
     return cleanAndParseJSON(data.reply);
-  } catch (e) {
-    console.warn("Failed to fetch topics from backend gateway", e);
-    return [];
+  } catch (e: any) {
+    console.error("Topics fetch error:", e);
+    throw new Error(`Topic generation error: ${e.message}`);
   }
 };
 
@@ -40,27 +41,29 @@ export const generateLessonScript = async (topic: string): Promise<LessonData> =
   const message = `Topic to discuss: "${topic}"`;
 
   try {
-    const response = await fetch("http://localhost:8000/api/script", {
+    const response = await fetch("/api/script", {  // Use relative path for Vercel
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message })
     });
 
-    if (!response.ok) throw new Error("Backend API Error");
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Backend script API failed (${response.status}): ${errorText}`);
+    }
 
     const data = await response.json();
+    if (!data.reply) throw new Error(`Backend script API response miss 'reply'. Data: ${JSON.stringify(data)}`);
+
     const parsed = cleanAndParseJSON(data.reply);
 
-    // Add UUIDs
     return {
       ...parsed,
       id: crypto.randomUUID(),
       createdAt: Date.now()
     } as LessonData;
-  } catch (e) {
-    console.error("Failed to fetch/parse script from backend gateway", e);
-    throw new Error("Failed to parse lesson data");
+  } catch (e: any) {
+    console.error("Script fetch error:", e);
+    throw new Error(`Script error: ${e.message}`);
   }
 };
