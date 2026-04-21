@@ -2,8 +2,18 @@ import { LessonData } from "../types";
 
 const cleanAndParseJSON = (text: string) => {
   try {
-    const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-    return JSON.parse(clean);
+    // 自动寻找 JSON 对象的起始和结束括号，这能完美过滤掉大模型喜欢加的闲聊前言，比如 "Here is your JSON: ```json ..."
+    const startIdx = text.search(/[{\[]/);
+    // 反向查找最后一个闭合扩号
+    const endIdxMatch = text.match(/[}\]][^}\]]*$/);
+
+    if (startIdx !== -1 && endIdxMatch) {
+      const clean = text.substring(startIdx, endIdxMatch.index! + 1);
+      return JSON.parse(clean);
+    }
+
+    // 如果没找到括号包裹，作为一个兜底尝试
+    return JSON.parse(text);
   } catch (err: any) {
     throw new Error(`JSON Parsing failed. Raw text snippet: ${text.substring(0, 50)}... Error: ${err.message}`);
   }
