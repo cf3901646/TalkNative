@@ -51,7 +51,7 @@ export const generateLessonScript = async (topic: string): Promise<LessonData> =
   const message = `Topic to discuss: "${topic}"`;
 
   // 极致安全的跨平台环境变量加载器（防低版本浏览器 ReferenceError 白屏崩溃）
-  let fallbackUrl = "https://lingering-dust-fec1.cf3901646.workers.dev";
+  let fallbackUrl = "https://lingering-dust-fec1.cf3901646.workers.dev/";
   try {
     if (typeof import.meta !== "undefined" && (import.meta as any).env) {
       fallbackUrl = (import.meta as any).env.VITE_BACKEND_URL || fallbackUrl;
@@ -59,7 +59,7 @@ export const generateLessonScript = async (topic: string): Promise<LessonData> =
   } catch (err) {
     // 忽略旧版浏览器不支持 import.meta 的异常，实现平滑降级
   }
-  const backendUrl = fallbackUrl.replace(/\/$/, "");
+  const backendUrl = fallbackUrl;
 
   try {
     const response = await fetch(backendUrl, {
