@@ -50,8 +50,12 @@ export const generateTopicSuggestions = async (count: number, avoidTopics: strin
 export const generateLessonScript = async (topic: string): Promise<LessonData> => {
   const message = `Topic to discuss: "${topic}"`;
 
+  // 支持在项目环境变量（.env 或 Vercel Dashboard）中通过 VITE_BACKEND_URL 自由配置外部高性能后端（如 Cloudflare Workers）
+  // 如果未配置，则无缝向下兼容，自动回落至 Vercel 本地默认的 Python 接口路由 /api/script
+  const backendUrl = (import.meta.env.VITE_BACKEND_URL || "/api/script").replace(/\/$/, "");
+
   try {
-    const response = await fetch("/api/script", {  // Use relative path for Vercel
+    const response = await fetch(backendUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message })
