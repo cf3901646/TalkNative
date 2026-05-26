@@ -68,6 +68,13 @@ function App() {
     return () => { window.speechSynthesis.cancel(); };
   }, []);
 
+  // 核心优化：当用户在播放中切换语速时，立即以新语速重播当前行，避免卡顿与延迟
+  useEffect(() => {
+    if (playbackState === PlaybackState.PLAYING && activeLineId && lesson) {
+      playLine(activeLineId);
+    }
+  }, [playbackRate]);
+
   const handleGenerate = async () => {
     if (!topic.trim()) return;
     setIsGenerating(true);
