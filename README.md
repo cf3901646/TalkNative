@@ -1,5 +1,4 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 
 # TalkNative (LingoFlow) 
 
@@ -18,7 +17,7 @@ __🎯 你的专属沉浸式英语口语与听力训练私教__
 
 __TalkNative (LingoFlow)__ 是一款专为英语学习者打造的__沉浸式口语与听力实战平台__。
 
-市面上的英语听力材料往往枯燥且与现实脱节。为了解决这一痛点，TalkNative 结合了 __Google Gemini 2.5 Flash__ 的智能文本生成能力与 __微软 Edge TTS 神经网络语音__ 技术，允许你根据任何想练习的现实场景，一键生成极为地道的美式英语长对话，并配合高亮同步跟读，帮你真正实现“像母语者一样交流”。
+市面上的英语听力材料往往枯燥且与现实脱节。为了解决这一痛点，TalkNative 结合了 __Google Gemini 2.5 Flash__ 的智能文本生成能力与 __微软 Edge TTS 神经网络语音__ 技术，允许你根据 any 练习的现实场景，一键生成极为地道的美式英语长对话，并配合高亮同步跟读，帮你真正实现“像母语者一样交流”。
 
 ---
 
@@ -51,7 +50,7 @@ __TalkNative (LingoFlow)__ 是一款专为英语学习者打造的__沉浸式口
 
 | 变量名 (Name) | 变量值 (Value) | 说明 |
 | :--- | :--- | :--- |
-| GEMINI_API_KEY | 你的Gemini_API_Key | 填入你第一步获取的 API Key。如果有多个，可以用英文逗号隔开，例如 key1,key2,key3，系统会自动实现负载均衡和轮换。 |
+| GEMINI_API_KEY | 你的Gemini_API_Key | 填入你第一步获取 of API Key。如果有多个，可以用英文逗号隔开，例如 key1,key2,key3，系统会自动实现负载均衡和轮换。 |
 | VITE_BACKEND_URL | /api/script | （非常重要） 填入 /api/script，这会引导前端直接使用你刚刚部署 of 你的 Vercel 后端，避免使用原作者的演示服务器。 |
 
 5. 检查无误后，点击 "Deploy" 按钮。
