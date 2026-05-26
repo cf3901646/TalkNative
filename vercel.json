@@ -1,8 +1,15 @@
 {
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "framework": "vite",
     "rewrites": [
         {
             "source": "/api/(.*)",
             "destination": "/api/index.py"
+        },
+        {
+            "source": "/((?!api|assets|logo\\.png|sw\\.js|manifest\\.json).*)",
+            "destination": "/index.html"
         }
     ],
     "headers": [
