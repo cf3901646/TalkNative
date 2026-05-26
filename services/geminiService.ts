@@ -53,7 +53,7 @@ export const generateLessonScript = async (topic: string): Promise<LessonData> =
   // 优先使用环境变量 VITE_BACKEND_URL；若未配置，则默认直接回落至您专属的 Cloudflare Worker 高性能网关。
   // 这实现了最极致的“开箱即用”体验，即使不在 Vercel 网页上配置任何环境变量，也能够一键完美运行！
   const backendUrl = (
-    import.meta.env.VITE_BACKEND_URL || 
+    (import.meta as any).env?.VITE_BACKEND_URL || 
     "https://lingering-dust-fec1.cf3901646.workers.dev"
   ).replace(/\/$/, "");
 
