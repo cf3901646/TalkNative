@@ -3,18 +3,36 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/4/47/React.svg" />
+  <script>
+    // 强制注销可能残留的旧 Service Worker 并清理 Cache Storage（这绝对不会影响 IndexedDB 存储的历史文章数据）
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        for (let name of names) {
+          caches.delete(name);
+        }
+      });
+    }
+  </script>
+  <link rel="icon" type="image/png" href="/logo.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
 
   <!-- PWA Settings -->
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0f19" media="(prefers-color-scheme: dark)">
 
   <!-- iOS support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TalkNative">
-  <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/4/47/React.svg">
+  <link rel="apple-touch-icon" href="/logo.png">
 
   <!-- SEO & Open Graph -->
   <title>TalkNative - 地道听力练习</title>
@@ -22,15 +40,34 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="TalkNative - 地道听力练习">
   <meta property="og:description" content="AI驱动的地道英语听力练习工具，生成真实对话，包含双语字幕与习语解析。">
-  <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/4/47/React.svg">
+  <meta property="og:image" content="/logo.png">
   <meta name="twitter:card" content="summary">
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
       -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 移动端安全区适配工具类 */
+    .pb-safe-area {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .pt-safe-area {
+      padding-top: env(safe-area-inset-top);
+    }
+    .mt-safe-area {
+      margin-top: env(safe-area-inset-top);
+    }
+    .mb-safe-area {
+      margin-bottom: env(safe-area-inset-bottom);
     }
 
     ::-webkit-scrollbar {
@@ -49,20 +86,60 @@
     .dark ::-webkit-scrollbar-thumb {
       background-color: #475569;
     }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.5s ease-out forwards;
+    }
+
+    @keyframes waveBounce {
+      0%, 100% { transform: scaleY(1); }
+      50% { transform: scaleY(1.6); }
+    }
+    .wave-bar {
+      transform-origin: 50% 50px;
+      animation: waveBounce 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
   </style>
 </head>
 
-<body class="bg-gray-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200">
+<body class="bg-[#f8fafc] text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200">
   <div id="root">
     <div
       style="height: 100vh; width: 100vw; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #f8fafc; color: #0f172a;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#4f46e5"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path
-          d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="width: 80px; height: 80px;">
+        <defs>
+          <linearGradient id="logo-grad-loading" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#3b82f6" />
+            <stop offset="60%" stop-color="#4f46e5" />
+            <stop offset="100%" stop-color="#7c3aed" />
+          </linearGradient>
+        </defs>
+        <!-- 对话框外轮廓 -->
+        <path d="M 50 18 C 65.5 18, 78 30.5, 78 46 C 78 53.5, 75 60.5, 70 65.5 L 74 77 L 62 73 C 58.5 74, 54.5 74.5, 50 74.5 C 34.5 74.5, 22 62, 22 46 C 22 30.5, 34.5 18, 50 18 Z" stroke="url(#logo-grad-loading)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <!-- 动感声波柱 -->
+        <g fill="url(#logo-grad-loading)">
+          <rect class="wave-bar" x="38.75" y="35" width="4.5" height="22" rx="2.25" style="transform-origin: 41px 46px; animation-delay: 0.1s;" />
+          <rect class="wave-bar" x="46.25" y="29" width="4.5" height="34" rx="2.25" style="transform-origin: 48.5px 46px; animation-delay: 0.25s;" />
+          <rect class="wave-bar" x="53.75" y="33" width="4.5" height="26" rx="2.25" style="transform-origin: 56px 46px; animation-delay: 0.4s;" />
+          <rect class="wave-bar" x="61.25" y="37" width="4.5" height="18" rx="2.25" style="transform-origin: 63.5px 46px; animation-delay: 0.55s;" />
+        </g>
       </svg>
-      <h1 style="font-size: 1.5rem; font-weight: 700; margin-top: 1rem; font-family: sans-serif;">TalkNative</h1>
-      <p style="margin-top: 0.5rem; color: #64748b; font-family: sans-serif;">Loading...</p>
+      <h1 style="font-size: 1.6rem; font-weight: 900; margin-top: 1.5rem; font-family: sans-serif; letter-spacing: -0.025em; background: linear-gradient(to right, #4f46e5, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">TalkNative</h1>
+      <p style="margin-top: 0.4rem; font-size: 0.75rem; font-weight: 700; color: #94a3b8; font-family: sans-serif; letter-spacing: 0.1em; text-transform: uppercase;">AI-POWERED LISTENING PRACTICE</p>
     </div>
   </div>
   <noscript>

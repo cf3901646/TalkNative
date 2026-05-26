@@ -29,6 +29,7 @@ export interface LessonData {
 
 export enum PlaybackState {
   IDLE = 'IDLE',
+  LOADING = 'LOADING',
   PLAYING = 'PLAYING',
   PAUSED = 'PAUSED',
-}
+}

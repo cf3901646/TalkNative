@@ -2,26 +2,26 @@ import { LessonData } from "../types";
 
 const cleanAndParseJSON = (text: string) => {
   try {
-    // 自动寻找 JSON 对象的起始和结束括号，这能完美过滤掉大模型喜欢加的闲聊前言，比如 "Here is your JSON: ```json ..."
-    const startIdx = text.search(/[{\[]/);
-    // 反向查找最后一个闭合扩号
-    const endIdxMatch = text.match(/[}\]][^}\]]*$/);
-
-    if (startIdx !== -1 && endIdxMatch) {
-      const clean = text.substring(startIdx, endIdxMatch.index! + 1);
-      return JSON.parse(clean);
-    }
-
-    // 如果没找到括号包裹，作为一个兜底尝试
+    // 首先尝试直接解析，如果大模型很乖，直接返回了纯 JSON
     return JSON.parse(text);
-  } catch (err: any) {
-    throw new Error(`JSON Parsing failed. Raw text snippet: ${text.substring(0, 50)}... Error: ${err.message}`);
+  } catch (e) {
+    // 如果直接解析失败，尝试寻找 JSON 结构的边界
+    try {
+      const startIdx = text.search(/[{\[]/);
+      const endIdxMatch = text.match(/[}\]][^}\]]*$/);
+
+      if (startIdx !== -1 && endIdxMatch) {
+        const clean = text.substring(startIdx, endIdxMatch.index! + 1);
+        return JSON.parse(clean);
+      }
+    } catch (innerErr: any) {
+      console.error("Inner parsing failed:", innerErr);
+    }
+    
+    throw new Error(`JSON 解析失败。原始内容片段: ${text.substring(0, 100)}...`);
   }
 };
 
-export const hasValidApiKey = (): boolean => {
-  return true;
-};
 
 export const generateTopicSuggestions = async (count: number, avoidTopics: string[]): Promise<string[]> => {
   const avoidContext = avoidTopics.slice(-30).join("; ");
