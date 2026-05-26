@@ -173,12 +173,13 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300 font-sans pb-safe-area pt-[env(safe-area-inset-top)]">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300 font-sans pb-safe-area pt-safe-area">
       
       {/* 极简顶层逐词高亮切换按钮 (固定于电脑端/移动端右上角，暗色切换左侧) */}
       <button 
         onClick={() => setWordHighlightEnabled(!wordHighlightEnabled)}
-        className={`fixed md:top-6 md:right-20 top-[calc(env(safe-area-inset-top)+16px)] right-[60px] z-40 p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all ${
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+        className={`fixed md:top-6 md:right-20 right-[60px] z-40 p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all ${
           wordHighlightEnabled 
             ? 'text-amber-500 hover:text-amber-600 dark:text-amber-400' 
             : 'text-slate-400 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400'
@@ -191,7 +192,8 @@ function App() {
       {/* 极简顶层暗色切换按钮 (固定于电脑端/移动端右上角) */}
       <button 
         onClick={() => setDarkMode(!darkMode)}
-        className="fixed md:top-6 md:right-6 top-[calc(env(safe-area-inset-top)+16px)] right-4 z-40 p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 shadow-md hover:shadow-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:scale-105 active:scale-95 transition-all"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+        className="fixed md:top-6 md:right-6 right-4 z-40 p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 shadow-md hover:shadow-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:scale-105 active:scale-95 transition-all"
         title={darkMode ? "切换为日间模式" : "切换为夜间模式"}
       >
         {darkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -463,16 +465,17 @@ function App() {
           {lesson && (
             <div className="animate-fade-in space-y-5">
               {/* 对话顶层面包屑 */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800/80">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800/80">
                 <button 
                   onClick={handleBackToHome} 
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-extrabold text-slate-600 dark:text-slate-300"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-black text-slate-700 dark:text-slate-200 active:scale-95 transition-all shadow-sm border border-slate-200/10"
                 >
-                  <ArrowRight size={10} className="rotate-180" /> <span>返回列表</span>
+                  <ArrowRight size={13} className="rotate-180 stroke-[2.5]" /> 
+                  <span>返回列表</span>
                 </button>
                 <div className="text-right">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">当前精听场景</span>
-                  <h2 className="font-extrabold text-sm truncate max-w-[180px] text-slate-800 dark:text-white">{lesson.topic}</h2>
+                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">当前精听场景</span>
+                  <h2 className="font-extrabold text-sm truncate max-w-[180px] text-slate-800 dark:text-white mt-0.5">{lesson.topic}</h2>
                 </div>
               </div>
 
