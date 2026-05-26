@@ -463,9 +463,9 @@ function App() {
 
           {/* 4. 对话激活播放状态：全宽沉浸式手机听读 */}
           {lesson && (
-            <div className="animate-fade-in space-y-5">
-              {/* 对话顶层面包屑 */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="animate-fade-in space-y-6">
+              {/* 对话顶层面包屑：右侧彻底排空，为悬浮按钮预留呼吸位 */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
                 <button 
                   onClick={handleBackToHome} 
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-black text-slate-700 dark:text-slate-200 active:scale-95 transition-all shadow-sm border border-slate-200/10"
@@ -473,10 +473,14 @@ function App() {
                   <ArrowRight size={13} className="rotate-180 stroke-[2.5]" /> 
                   <span>返回列表</span>
                 </button>
-                <div className="text-right">
-                  <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">当前精听场景</span>
-                  <h2 className="font-extrabold text-sm truncate max-w-[180px] text-slate-800 dark:text-white mt-0.5">{lesson.topic}</h2>
-                </div>
+                {/* 物理占位，确保右侧在任何窄屏下都不会堆积任何核心文字内容 */}
+                <div className="w-24"></div>
+              </div>
+
+              {/* 沉浸式场景标题区块：大标题高贵设计，确保绝不遮挡且层级清晰 */}
+              <div className="space-y-1 px-1">
+                <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest block select-none">当前精听场景</span>
+                <h1 className="font-black text-lg text-slate-800 dark:text-white leading-snug tracking-tight">{lesson.topic}</h1>
               </div>
 
               {/* 对话列表渲染组件 */}

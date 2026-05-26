@@ -35,7 +35,7 @@ const Controls: React.FC<ControlsProps> = ({
     <div className="fixed bottom-5 left-4 right-4 max-w-md mx-auto z-50 mb-[env(safe-area-inset-bottom)] transition-all">
       
       {/* 极简自适应手机胶囊播放岛 */}
-      <div className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/80 rounded-[2rem] p-3.5 shadow-[0_12px_35px_rgba(99,102,241,0.12)] flex flex-col gap-3">
+      <div className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/80 rounded-[2rem] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_12px_35px_rgba(0,0,0,0.4)] flex flex-col gap-3">
         
         {/* 上层控制 */}
         <div className="flex items-center justify-between">
