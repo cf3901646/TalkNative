@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <!-- 渐变色定义 -->
+    <linearGradient id="logo-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="60%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+    
+    <!-- 精致轻量阴影滤镜 -->
+    <filter id="shadow" x="-20%" y="-10%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- 1. 矢量圆角矩形背景板 (符合 Squircle 圆角比例) -->
+  <rect x="9" y="8" width="82" height="82" rx="18" fill="#ffffff" filter="url(#shadow)" />
+
+  <!-- 2. 中央彩色声波 Logo (缩小 0.72 倍居中) -->
+  <g transform="translate(50, 50) scale(0.72) translate(-50, -50)">
+    <!-- 对话框圆润外廓 -->
+    <path 
+      d="M 50 18 C 65.5 18, 78 30.5, 78 46 C 78 53.5, 75 60.5, 70 65.5 L 74 77 L 62 73 C 58.5 74, 54.5 74.5, 50 74.5 C 34.5 74.5, 22 62, 22 46 C 22 30.5, 34.5 18, 50 18 Z" 
+      stroke="url(#logo-grad)" 
+      stroke-width="5" 
+      stroke-linecap="round" 
+      stroke-linejoin="round" 
+      fill="none" 
+    />
+    
+    <!-- 律动声波柱 -->
+    <g fill="url(#logo-grad)">
+      <rect x="38.75" y="35" width="4.5" height="22" rx="2.25" />
+      <rect x="46.25" y="29" width="4.5" height="34" rx="2.25" />
+      <rect x="53.75" y="33" width="4.5" height="26" rx="2.25" />
+      <rect x="61.25" y="37" width="4.5" height="18" rx="2.25" />
+    </g>
+  </g>
+</svg>
