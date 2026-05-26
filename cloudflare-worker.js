@@ -45,9 +45,6 @@ export default {
         });
       }
 
-      // 3. 随机选择一个 API Key 进行轮换，规避 429 限流
-      const selectedKey = keys[Math.floor(Math.random() * keys.length)];
-
       const systemPrompt = `Create a natural English conversation between two friends (Alex and Jordan).
 CRITICAL: Generate a long, deep conversation (50-70 exchanges).
 
@@ -85,22 +82,50 @@ JSON SCHEMA:
         }
       };
 
-      // 4. 调用 Google Gemini 官方 API（CF Workers 没有 10 秒超时限制，可以直接等待完整返回）
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${selectedKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      // 3. 带有“自动故障避让与静默重试”的 API Key 轮换调用算法
+      // 如果某一个 Key 遇到 503（谷歌服务器繁忙）、429（限流）或 403（密钥禁用），
+      // Worker 将会自动在后台静默更换下一个 Key 重试，直到成功或尝试完前 3 个 Key，保证前端用户绝对零感知！
+      let lastError = "";
+      let remainingKeys = [...keys];
+      let response = null;
+      let success = false;
 
-      if (!response.ok) {
-        const errText = await response.text();
-        return new Response(JSON.stringify({ error: `Gemini API 错误: ${errText}` }), {
-          status: response.status,
+      // 最多尝试 3 次（或候选池 Key 的总数次）
+      const maxAttempts = Math.min(remainingKeys.length, 3);
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const randomIndex = Math.floor(Math.random() * remainingKeys.length);
+        const selectedKey = remainingKeys[randomIndex];
+        // 从候选池中移出，避免下次重试选到同一个
+        remainingKeys.splice(randomIndex, 1);
+
+        try {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${selectedKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            }
+          );
+
+          if (response.ok) {
+            success = true;
+            break;
+          } else {
+            const errText = await response.text();
+            lastError = `Key [${selectedKey.substring(0, 8)}...] 报错 (${response.status}): ${errText}`;
+            console.warn(`第 ${attempt + 1} 次尝试失败，正在自动更换 Key 重试。错误详情: ${lastError}`);
+          }
+        } catch (fetchErr) {
+          lastError = `Key [${selectedKey.substring(0, 8)}...] 网络异常: ${fetchErr.message}`;
+          console.warn(`第 ${attempt + 1} 次网络请求异常，正在自动更换 Key 重试。`);
+        }
+      }
+
+      if (!success || !response) {
+        return new Response(JSON.stringify({ error: `所有 API Key 均尝试失败。最后一次报错详情: ${lastError}` }), {
+          status: 502,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
