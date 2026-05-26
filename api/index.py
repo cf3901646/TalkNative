@@ -135,15 +135,15 @@ async def call_gemini(system_prompt: str, user_message: str, temperature: float 
                         print(f"[TalkNative] {key_label} 503 重试{max_503_retries}次仍失败，切换 Key...")
                         break
 
-                if resp.status_code == 429:
+                if resp.status_code in (403, 429):
                     break  # 跳出 503 重试循环，进入 key 切换逻辑
 
                 # 其他错误直接抛出
                 raise Exception(f"Gemini API error ({resp.status_code}): {resp.text}")
 
-            # 429 或 503 耗尽重试 → 切换到下一个 key
-            if resp.status_code in (429, 503):
-                reason = "限流" if resp.status_code == 429 else "服务繁忙"
+            # 403、429 或 503 耗尽重试 → 切换到下一个 key
+            if resp.status_code in (403, 429, 503):
+                reason = "Key已失效/无权限" if resp.status_code == 403 else ("限流" if resp.status_code == 429 else "服务繁忙")
                 print(f"[TalkNative] {key_label} {reason}，切换到下一个 Key...")
                 _current_key_index = (_current_key_index + 1) % total_keys
                 tried_keys += 1
