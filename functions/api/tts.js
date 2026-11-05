@@ -1,3 +1,5 @@
+import { synthesizeEdgeTTS } from "./edge-tts.js";
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   const corsHeaders = {
@@ -18,7 +20,24 @@ export async function onRequestPost(context) {
       });
     }
 
-    // 收集所有可用的 Google API 密钥 (用于方案 3: Google Cloud Text-to-Speech API / Journey 声线)
+    // 默认发音人映射：
+    // Alex -> en-US-GuyNeural (沉稳自然的纯正美音男声)
+    // Jordan -> en-US-JennyNeural (清晰灵动的纯正美音女声)
+    const voice = speaker === "Alex" ? "en-US-GuyNeural" : "en-US-JennyNeural";
+
+    // 【优先级 1】：纯血 Edge-TTS 边缘 WebSocket 直连（真男女声线 + 真实 WordBoundary 毫秒级字字对齐）
+    try {
+      const edgeResult = await synthesizeEdgeTTS(text, voice, rate);
+      if (edgeResult && edgeResult.audio) {
+        return new Response(JSON.stringify(edgeResult), {
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        });
+      }
+    } catch (edgeErr) {
+      console.warn("[TTS] Edge-TTS 边缘连接异常，自动降级至 Google Cloud / 神经合成流:", edgeErr.message);
+    }
+
+    // 【优先级 2】：Google Cloud Text-to-Speech API (Journey 声线)
     const keys = [];
     const mainKey = env.GOOGLE_TTS_API_KEY || env.GEMINI_API_KEY || "";
     if (mainKey) {
@@ -32,9 +51,6 @@ export async function onRequestPost(context) {
     let audioBase64 = null;
     let usedJourney = false;
 
-    // 【方案 3：接入 Google Cloud Journey 超真实拟人声线】
-    // Alex -> en-US-Journey-D (沉稳磁性男声)
-    // Jordan -> en-US-Journey-F (自然灵动女声)
     if (keys.length > 0) {
       const journeyVoice = speaker === "Alex" ? "en-US-Journey-D" : "en-US-Journey-F";
       for (const apiKey of keys) {
@@ -64,13 +80,11 @@ export async function onRequestPost(context) {
               break;
             }
           }
-        } catch (e) {
-          // 若该 Key 未开通 Cloud TTS 权限，平滑轮换
-        }
+        } catch (_) {}
       }
     }
 
-    // 【高可用兜底：分段拼接式 Google 纯正美音流 (彻底杜绝 >150 字符 400 截断并保障 100% 连通)】
+    // 【优先级 3】：高可用兜底分段拼接 Google 纯正美音流
     if (!audioBase64) {
       const chunks = splitIntoChunks(text, 120);
       const audioBuffers = [];
@@ -107,10 +121,10 @@ export async function onRequestPost(context) {
     }
 
     if (!audioBase64) {
-      throw new Error("TTS 合成失败，转交前端 WebSpeech 引擎");
+      throw new Error("全部服务端 TTS 路线均不可用，转交前端 WebSpeech 引擎");
     }
 
-    // 生成加权单词时间戳
+    // 根据文本长度生成时间戳
     const words = text.split(/\s+/);
     const wordsCount = words.length;
     const estimatedTotalSec = Math.max(1.5, (wordsCount * 0.36) / rate);
@@ -123,7 +137,7 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ 
       audio: audioBase64, 
       words: wordTimings,
-      engine: usedJourney ? "Google Cloud Journey" : "Google Neural Standard"
+      engine: usedJourney ? "Google Cloud Journey" : "Google Neural Standard (Fallback)"
     }), {
       headers: { "Content-Type": "application/json", ...corsHeaders }
     });
@@ -146,7 +160,6 @@ export async function onRequestOptions() {
   });
 }
 
-// 智能句子切分函数（按标点与单词边界切分，保障每段不超过 maxLength 字符）
 function splitIntoChunks(text, maxLength) {
   if (text.length <= maxLength) return [text];
   const parts = [];

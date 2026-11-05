@@ -129,17 +129,18 @@ export function useTTS(voices: SpeechSynthesisVoice[] = []) {
         elapsed = (ctx.currentTime - startCtxTimeRef.current) + pauseOffsetRef.current;
       }
 
-      // 快速二分/遍历匹配当前应处于高亮的词汇
+      // 智能区间匹配：当前单词持续高亮直到下一个单词开讲，彻底杜绝逗号或音节短暂停顿时的高亮脱节
       let matched = -1;
       for (let i = 0; i < timings.length; i++) {
         const t = timings[i];
-        if (elapsed >= t.start && elapsed < (t.start + t.duration)) {
+        const nextStart = (i < timings.length - 1) ? timings[i + 1].start : (t.start + t.duration + 0.3);
+        if (elapsed >= t.start && elapsed < nextStart) {
           matched = i;
           break;
         }
       }
 
-      // 若已经播放过最后单词
+      // 若已经越过最后单词的起止点
       if (matched === -1 && timings.length > 0 && elapsed >= timings[timings.length - 1].start) {
         matched = timings.length - 1;
       }
