@@ -53,8 +53,8 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
   return buf.buffer;
 }
 
-const cleanText = (text: string): string =>
-  text
+const cleanText = (text?: string): string =>
+  String(text || '')
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/<\/?[biBIstrongSTRONG]+>/g, '');
 

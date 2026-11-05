@@ -15,9 +15,9 @@ const Sidebar: React.FC<SidebarProps> = ({ lines, activeLineId, isOpen, onClose,
   const containerRef = useRef<HTMLDivElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
 
-  // 展开并追踪属于当前句子的重点习语
-  const allIdiomsWithMeta = lines.flatMap(line => 
-    line.idioms.map(idiom => ({ ...idiom, lineId: line.id }))
+  // 展开并追踪属于当前句子的重点习语（严格空值防御，防止大模型未输出 idioms 导致白屏崩溃）
+  const allIdiomsWithMeta = (lines || []).flatMap(line => 
+    (line?.idioms || []).map(idiom => ({ ...idiom, lineId: line?.id }))
   );
 
   const isFavorite = (idiom: IdiomNote) => favorites.some(f => f.phrase === idiom.phrase);

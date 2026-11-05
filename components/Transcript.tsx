@@ -36,16 +36,19 @@ const Transcript: React.FC<TranscriptProps> = ({ lines, activeId, onLineClick, i
   try {
     return (
       <div className="flex-1 space-y-4 pb-48" ref={scrollRef}>
-        {lines.map((line) => {
-          const isActive = line.id === activeId;
-          const isAlex = line.speaker === 'Alex';
-          const englishText = cleanText(line.english);
+        {(lines || []).map((line, lineIdx) => {
+          const lineId = line?.id || `line-${lineIdx}`;
+          const isActive = lineId === activeId;
+          const speakerName = line?.speaker || (lineIdx % 2 === 0 ? 'Alex' : 'Jordan');
+          const isAlex = speakerName === 'Alex';
+          const englishText = cleanText(line?.english || (line as any)?.text || (line as any)?.dialogue || (line as any)?.sentence);
+          const chineseText = cleanText(line?.chinese || (line as any)?.translation || (line as any)?.meaning || (line as any)?.zh);
 
           return (
             <div
-              key={line.id}
+              key={lineId}
               id={`line-${line.id}`}
-              onClick={() => onLineClick(line.id)}
+              onClick={() => onLineClick(lineId)}
               className={`
                 group relative p-6 rounded-2xl border transition-all duration-300 cursor-pointer
                 ${isActive

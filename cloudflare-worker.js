@@ -46,11 +46,11 @@ export default {
       }
 
       const systemPrompt = `Create a natural English conversation between two friends (Alex and Jordan).
-CRITICAL: Generate a long, deep conversation (50-70 exchanges).
+CRITICAL: Generate a rich, deep conversation (20-30 natural exchanges).
 
 REQUIREMENTS:
 1. Contemporary American English with natural interjections ("well", "you know").
-2. Include 12-15 specific idioms/phrasal verbs.
+2. Include 8-12 specific idioms/phrasal verbs. If a line has no idiom, set idioms to [].
 3. Return ONLY a valid JSON object. 
 4. DO NOT use any markdown formatting (**bold**, <i>italic</i>) in any text field.
 5. Provide Mandarin translation for each line.
@@ -67,7 +67,7 @@ JSON SCHEMA:
       "idioms": [{"phrase": "...", "definition": "...", "translation": "...", "usage": "..."}]
     }
   ]
-}`;
+};`
 
       const payload = {
         system_instruction: {
@@ -78,7 +78,10 @@ JSON SCHEMA:
         ],
         generationConfig: {
           temperature: 0.7,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          thinkingConfig: {
+            thinkingBudget: 0
+          }
         }
       };
 
@@ -131,7 +134,17 @@ JSON SCHEMA:
       }
 
       const resData = await response.json();
-      const reply = resData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const candidate = resData.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+      // 关键修复：过滤思维链，仅提取真正模型输出
+      let reply = parts
+        .filter(p => !p.thought)
+        .map(p => p.text || "")
+        .join("")
+        .trim();
+      if (!reply && parts.length > 0) {
+        reply = parts[parts.length - 1].text || "";
+      }
 
       // 5. 成功返回剧本 JSON 数据给前端
       return new Response(JSON.stringify({ reply }), {

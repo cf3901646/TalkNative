@@ -57,11 +57,11 @@ CRITICAL REQUIREMENTS:
 4. Return ONLY a JSON array of strings."""
 
 SCRIPT_SYSTEM_PROMPT = """Create a natural English conversation between two friends (Alex and Jordan).
-CRITICAL: Generate a long, deep conversation (50-70 exchanges).
+CRITICAL: Generate a rich, deep conversation (20-30 natural exchanges).
 
 REQUIREMENTS:
 1. Contemporary American English with natural interjections ("well", "you know").
-2. Include 12-15 specific idioms/phrasal verbs.
+2. Include 8-12 specific idioms/phrasal verbs. If a line has no idiom, set idioms to an empty array [].
 3. Return ONLY a valid JSON object. 
 4. DO NOT use any markdown formatting (**bold**, <i>italic</i>) in any text field.
 5. Provide Mandarin translation for each line.
@@ -98,7 +98,10 @@ async def call_gemini(system_prompt: str, user_message: str, temperature: float 
         ],
         "generationConfig": {
             "temperature": temperature,
-            "responseMimeType": "application/json"
+            "responseMimeType": "application/json",
+            "thinkingConfig": {
+                "thinkingBudget": 0
+            }
         }
     }
 
@@ -122,7 +125,14 @@ async def call_gemini(system_prompt: str, user_message: str, temperature: float 
 
                 if resp.status_code == 200:
                     data = resp.json()
-                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                    candidate = data.get("candidates", [{}])[0]
+                    parts = candidate.get("content", {}).get("parts", [])
+                    # 关键修复：过滤思维链 (thought: true)，只提取最终有效内容
+                    pure_parts = [p.get("text", "") for p in parts if not p.get("thought", False)]
+                    reply = "".join(pure_parts).strip()
+                    if not reply and parts:
+                        reply = parts[-1].get("text", "").strip()
+                    return reply
 
                 if resp.status_code == 503:
                     if attempt < max_503_retries:
