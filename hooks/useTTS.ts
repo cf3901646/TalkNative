@@ -1,5 +1,8 @@
 /**
- * useTTS — 优化版：支持后端语速控制与音频预加载
+ * useTTS — 工业级双轨自适应语音合成与高亮引擎
+ * 1. 优先尝试高精度 edge-tts 后端 (/api/tts)
+ * 2. 在纯静态托管 (如 Cloudflare Pages 报 405/404) 或断网时，零感知平滑降级至浏览器原生 Web Speech API
+ * 3. 完美区分 Alex (男声) 与 Jordan (女声)，精准支持逐词荧光笔高亮同步与语速自适应调节
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -17,7 +20,7 @@ interface TTSResponse {
 }
 
 let audioCtx: AudioContext | null = null;
-let activeSource: AudioBufferSourceNode | null = null; // 全局活动音频源，防止多实例或快速点击导致双声道重叠
+let activeSource: AudioBufferSourceNode | null = null;
 
 const getAudioContext = () => {
   if (!audioCtx || audioCtx.state === 'closed') {
@@ -26,7 +29,6 @@ const getAudioContext = () => {
   return audioCtx;
 };
 
-// 缓存与预加载队列
 const ttsCache = new Map<string, TTSResponse>();
 const prefetchQueue = new Set<string>();
 
@@ -58,13 +60,12 @@ const cleanText = (text?: string): string =>
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/<\/?[biBIstrongSTRONG]+>/g, '');
 
-export function useTTS(_voices: SpeechSynthesisVoice[]) {
+export function useTTS(voices: SpeechSynthesisVoice[] = []) {
   const [playbackState, setPlaybackState] = useState<PlaybackState>(PlaybackState.IDLE);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState<number>(-1);
 
-  // 唯一请求 ID，防止连续点击导致的重叠播放
   const requestIdRef = useRef<number>(0);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -72,6 +73,7 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
   const pauseOffsetRef = useRef<number>(0);
   const currentTimingsRef = useRef<WordTiming[]>([]);
   const onEndRef = useRef<(() => void) | null>(null);
+  const isWebSpeechPlayingRef = useRef<boolean>(false);
 
   const clearHighlightTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -81,7 +83,7 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
   const stop = useCallback(() => {
     clearHighlightTimers();
     
-    // 优先停止全局唯一活动音频源，彻底杜绝双声道重叠
+    // 停止 Web Audio
     if (activeSource) {
       try {
         activeSource.onended = null;
@@ -97,6 +99,15 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
       } catch (_) {}
       sourceRef.current = null;
     }
+
+    // 停止原生 Web Speech
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (_) {}
+    }
+    isWebSpeechPlayingRef.current = false;
+
     setPlaybackState(PlaybackState.IDLE);
     setCurrentWordIndex(-1);
     pauseOffsetRef.current = 0;
@@ -108,7 +119,6 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
   ) => {
     clearHighlightTimers();
     timings.forEach((t, wordIdx) => {
-      // 后端已处理语速，所以 start 时间是绝对正确的
       const delay = (t.start - offsetSeconds) * 1000;
       if (delay < 0) return;
 
@@ -119,9 +129,96 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
     });
   }, [clearHighlightTimers]);
 
-  // 预加载函数
+  // 纯前端原生高保真发音引擎（平滑降级兜底）
+  const speakWithWebSpeech = useCallback((
+    text: string,
+    speaker: string,
+    rate: number,
+    onEnd?: () => void
+  ) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      setPlaybackState(PlaybackState.IDLE);
+      onEnd?.();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = Math.max(0.6, Math.min(1.8, rate));
+
+    // 智能选取匹配发音人（Alex 男声，Jordan 女声）
+    const candidateVoices = voices.length > 0 ? voices : window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    const isAlex = speaker === 'Alex';
+
+    let selectedVoice: SpeechSynthesisVoice | null = null;
+    if (isAlex) {
+      selectedVoice = candidateVoices.find(v => /guy|david|male|george|james|tom|mark/i.test(v.name)) ||
+                      candidateVoices.find(v => v.lang === 'en-US') ||
+                      candidateVoices[0] || null;
+    } else {
+      selectedVoice = candidateVoices.find(v => /jenny|zira|female|samantha|aria|victoria|karen/i.test(v.name)) ||
+                      candidateVoices.find(v => v.lang === 'en-US' && v !== selectedVoice) ||
+                      candidateVoices[0] || null;
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    // 建立词汇索引表用于 onboundary 高精度对齐
+    const words = text.trim().split(/\s+/);
+    const wordOffsets: number[] = [];
+    let curOffset = 0;
+    for (const w of words) {
+      const idx = text.indexOf(w, curOffset);
+      wordOffsets.push(idx !== -1 ? idx : curOffset);
+      curOffset = (idx !== -1 ? idx : curOffset) + w.length;
+    }
+
+    utterance.onboundary = (e) => {
+      if (e.name === 'word' || typeof e.charIndex === 'number') {
+        const charIdx = e.charIndex;
+        let matchedIdx = 0;
+        for (let i = 0; i < wordOffsets.length; i++) {
+          if (charIdx >= wordOffsets[i]) {
+            matchedIdx = i;
+          } else {
+            break;
+          }
+        }
+        setCurrentWordIndex(matchedIdx);
+      }
+    };
+
+    utterance.onstart = () => {
+      isWebSpeechPlayingRef.current = true;
+      setPlaybackState(PlaybackState.PLAYING);
+      setCurrentWordIndex(0);
+    };
+
+    utterance.onend = () => {
+      isWebSpeechPlayingRef.current = false;
+      setPlaybackState(PlaybackState.IDLE);
+      setCurrentWordIndex(-1);
+      setTimeout(() => onEnd?.(), 60);
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('[WebSpeech] 发音事件被中止或遇到异常:', e);
+      isWebSpeechPlayingRef.current = false;
+      setPlaybackState(PlaybackState.IDLE);
+      setCurrentWordIndex(-1);
+    };
+
+    isWebSpeechPlayingRef.current = true;
+    setPlaybackState(PlaybackState.PLAYING);
+    window.speechSynthesis.speak(utterance);
+  }, [voices]);
+
+  // 预加载队列
   const prefetchLines = useCallback(async (lines: DialogueLine[], startIndex: number) => {
-    // 预加载接下来的 2 句
     const nextLines = lines.slice(startIndex, startIndex + 3);
     for (const line of nextLines) {
       const cleanedText = cleanText(line.english);
@@ -136,7 +233,6 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
   }, [playbackRate]);
 
   const speak = useCallback(async (line: DialogueLine, onEnd?: () => void) => {
-    // 1. 同步获取并激活 AudioContext 实例，借由当前的用户交互手势瞬间获取浏览器授权
     const ctx = getAudioContext();
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
@@ -157,7 +253,6 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
     try {
       const { audio, words } = await fetchTTS(cleanedText, line.speaker, playbackRate);
       
-      // 关键检查：如果在我下载期间用户点了别的句子，我应该静默退出
       if (myId !== requestIdRef.current) return;
 
       currentTimingsRef.current = words;
@@ -167,20 +262,17 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
       const arrayBuffer = base64ToArrayBuffer(audio);
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
-      // 再次检查，防止解码期间发生切换
       if (myId !== requestIdRef.current) return;
 
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       
-      // 方案一：引入 1.6 倍无损硬件级增益放大器，解决声音轻的痛点
       const gainNode = ctx.createGain();
       gainNode.gain.setValueAtTime(1.6, ctx.currentTime);
-      
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
 
-      activeSource = source; // 标记为全局唯一活动音频源
+      activeSource = source;
       sourceRef.current = source;
       pauseOffsetRef.current = 0;
       startCtxTimeRef.current = ctx.currentTime;
@@ -192,7 +284,6 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
         sourceRef.current = null;
         setPlaybackState(PlaybackState.IDLE);
         setCurrentWordIndex(-1);
-        // 缩短切换延迟，让播放更紧凑
         setTimeout(() => onEndRef.current?.(), 50);
       };
 
@@ -201,13 +292,19 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
       scheduleHighlights(words, 0);
 
     } catch (err) {
-      console.error('[TTS] 失败:', err);
-      setPlaybackState(PlaybackState.IDLE);
-      onEnd?.();
+      console.warn('[useTTS] 后端音频服务不可用(静态托管或405)，已无缝平滑切换至浏览器原生高保真发音:', err);
+      if (myId !== requestIdRef.current) return;
+      speakWithWebSpeech(cleanedText, line.speaker, playbackRate, onEnd);
     }
-  }, [stop, clearHighlightTimers, scheduleHighlights, playbackRate]);
+  }, [stop, clearHighlightTimers, scheduleHighlights, playbackRate, speakWithWebSpeech]);
 
   const pause = useCallback(() => {
+    if (isWebSpeechPlayingRef.current && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.pause();
+      setPlaybackState(PlaybackState.PAUSED);
+      return;
+    }
+
     if (playbackState !== PlaybackState.PLAYING) return;
     clearHighlightTimers();
     const ctx = getAudioContext();
@@ -218,6 +315,12 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
   }, [playbackState, clearHighlightTimers]);
 
   const resume = useCallback(async (line: DialogueLine) => {
+    if (isWebSpeechPlayingRef.current && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.resume();
+      setPlaybackState(PlaybackState.PLAYING);
+      return;
+    }
+
     if (playbackState === PlaybackState.PAUSED) {
       const ctx = getAudioContext();
       await ctx.resume();
@@ -243,6 +346,6 @@ export function useTTS(_voices: SpeechSynthesisVoice[]) {
     pause,
     resume,
     stop,
-    prefetchLines // 暴露预加载方法
+    prefetchLines
   };
 }
