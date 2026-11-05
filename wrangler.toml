@@ -1,0 +1,9 @@
+name = "talknative-gateway"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 自动绑定用户自定义域名到 Cloudflare 边缘网络（彻底杜绝 Vercel 10秒超时限制）
+routes = [
+  { pattern = "talknative.3901646.xyz/*", zone_name = "3901646.xyz" }
+]

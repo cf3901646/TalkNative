@@ -127,54 +127,60 @@ export const generateTopicSuggestions = async (count: number, avoidTopics: strin
 export const generateLessonScript = async (topic: string): Promise<LessonData> => {
   const message = `Topic to discuss: "${topic}"`;
 
-  // 跨平台环境变量与双轨容灾路由：
-  // 1. 若配置了 VITE_BACKEND_URL，以该环境变量为绝对第一优先级
-  // 2. 若未配置，优先走当前同源 /api/script（适配 Vercel 或已配代理的本地环境）
-  // 3. 若同源请求失败且处于生产环境，可尝试 Cloudflare Workers 备选网关
-  let backendUrl = "/api/script";
-  const workerFallbackUrl = "https://lingering-dust-fec1.cf3901646.workers.dev/";
-
+  // 跨平台环境变量与多重智能故障转移：
+  // 1. 若配置了 VITE_BACKEND_URL，以此环境变量为第一优先级
+  // 2. 若未配置，默认走方案 A 自定义域名网关 https://talknative.3901646.xyz/
+  // 3. 若自定义域名未就绪或报错，自动平滑 fallback 至备用网关或当前同源 /api/script
+  let primaryBackendUrl = "https://talknative.3901646.xyz/";
   try {
     if (typeof import.meta !== "undefined" && (import.meta as any).env) {
       const envUrl = (import.meta as any).env.VITE_BACKEND_URL;
       if (envUrl) {
-        backendUrl = envUrl;
+        primaryBackendUrl = envUrl;
       }
     }
   } catch (err) {}
 
-  const fetchScriptFromEndpoint = async (url: string) => {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message })
-    });
+  const fallbackUrls = [
+    primaryBackendUrl,
+    "/api/script",
+    "https://lingering-dust-fec1.cf3901646.workers.dev/"
+  ];
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Backend script API failed (${response.status}): ${errorText}`);
-    }
+  // 去重候选 URL
+  const uniqueUrls = Array.from(new Set(fallbackUrls));
 
-    const data = await response.json();
-    if (!data.reply) throw new Error(`Backend script API response miss 'reply'. Data: ${JSON.stringify(data)}`);
+  let lastError: Error | null = null;
 
-    const parsed = cleanAndParseJSON(data.reply);
-    return normalizeLessonData(parsed, topic);
-  };
+  for (const targetUrl of uniqueUrls) {
+    try {
+      const response = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
 
-  try {
-    return await fetchScriptFromEndpoint(backendUrl);
-  } catch (firstErr: any) {
-    // 若默认 /api/script 在静态托管或未启动本地后端时 404/500，无缝故障转移至 Cloudflare Workers 备用网关
-    if (backendUrl === "/api/script") {
-      try {
-        console.warn("主接口 /api/script 响应异常，尝试切换至 Cloudflare Workers 备用网关...", firstErr);
-        return await fetchScriptFromEndpoint(workerFallbackUrl);
-      } catch (backupErr: any) {
-        console.error("Cloudflare Worker 备用网关亦失败:", backupErr);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Endpoint ${targetUrl} failed (${response.status}): ${errorText}`);
       }
+
+      const data = await response.json();
+      if (!data.reply) throw new Error(`Endpoint ${targetUrl} response missing 'reply'`);
+
+      const parsed = cleanAndParseJSON(data.reply);
+      const normalized = normalizeLessonData(parsed, topic);
+
+      if (!normalized.lines || normalized.lines.length === 0) {
+        throw new Error("AI 生成的剧本内容为空，请换个话题重试。");
+      }
+
+      return normalized;
+    } catch (err: any) {
+      console.warn(`[TalkNative] 尝试后端 ${targetUrl} 异常，准备尝试下一个备用线路:`, err.message);
+      lastError = err;
     }
-    console.error("Script fetch error:", firstErr);
-    throw new Error(`Script error: ${firstErr.message}`);
   }
+
+  throw new Error(`所有网关请求均失败。最后错误: ${lastError?.message || "网络连接异常"}`);
 };
